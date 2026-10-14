@@ -1,26 +1,57 @@
 @import "tailwindcss";
 
+@theme {
+  --breakpoint-xl: 90rem; /* 1440px: Wide */
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafaf8;
+  --foreground: #162c6f;
+
+  --brand-primary: #162c6f;
+  --brand-secondary: #0014aa;
+  --brand-secondary-dark: #000f80;
+  --brand-tint: #e8eaf1;
+  --brand-stone: #e8e6da;
+  --brand-gold: #c4bda0;
+  --brand-line: #dddcd4;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand: var(--brand-primary);
+  --color-brand-2: var(--brand-secondary);
+  --color-brand-2-dark: var(--brand-secondary-dark);
+  --color-tint: var(--brand-tint);
+  --color-stone: var(--brand-stone);
+  --color-gold: var(--brand-gold);
+  --color-line: var(--brand-line);
+  --font-sans: var(--font-vazirmatn), var(--font-dm-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+}
+
+
+.page-container {
+  margin-inline: auto;
+  width: 100%;
+  padding-inline: 20px;
+}
+@media (min-width: 768px) {
+  .page-container { padding-inline: 40px; }
+}
+@media (min-width: 1024px) {
+  .page-container { padding-inline: 60px; }
+}
+@media (min-width: 1440px) {
+  .page-container { padding-inline: 100px; max-width: 1640px; }
 }
