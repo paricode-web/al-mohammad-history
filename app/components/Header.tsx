@@ -107,6 +107,7 @@ export default function Header() {
 
       {/* منو: دو پنل کنار هم، از دو طرف می‌آیند و وسط صفحه به هم می‌رسند */}
       <div
+        data-lenis-prevent
         aria-hidden={!open}
         style={{
           visibility: open ? "visible" : "hidden",
