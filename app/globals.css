@@ -55,3 +55,6 @@ body {
 @media (min-width: 1440px) {
   .page-container { padding-inline: 100px; max-width: 1640px; }
 }
+html[lang="en"] body {
+  font-family: var(--font-dm-sans), sans-serif;
+}

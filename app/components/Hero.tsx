@@ -1,6 +1,10 @@
-import { intro } from "@/data/history";
+"use client";
+
+import { useLocale } from "@/i18n/LocaleProvider";
 
 export default function Hero() {
+  const { intro } = useLocale().content;
+
   return (
     <section className="relative flex min-h-[60vh] items-center overflow-hidden bg-brand text-white md:min-h-[70vh]">
       <div
@@ -14,9 +18,7 @@ export default function Hero() {
         <h1 className="mb-6 text-3xl font-bold leading-tight md:mb-8 md:text-5xl">
           {intro.title}
         </h1>
-        <p className="max-w-xl text-base leading-8 text-white/90 md:max-w-2xl md:text-lg md:leading-9">
-          {intro.text}
-        </p>
+       
       </div>
     </section>
   );
