@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { MotionConfig, motion } from "motion/react";
 import type { Highlight } from "@/data/history";
 import { useLocale } from "@/i18n/LocaleProvider";
@@ -40,7 +41,8 @@ function Card({ h, index }: { h: Highlight; index: number }) {
 
   return (
     <motion.div
-      className="h-full"
+      // روی دسکتاپ: این المنت از ردیف‌های گرید والد (subgrid) استفاده می‌کنه
+      className="h-full lg:grid lg:grid-rows-subgrid lg:[grid-row:span_var(--rows)]"
       initial={{ opacity: 0, x: dir === "rtl" ? 100 : -100 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, amount: 0.2 }}
@@ -51,7 +53,7 @@ function Card({ h, index }: { h: Highlight; index: number }) {
       }}
       onViewportEnter={() => setSeen(true)}
     >
-      <article className="group relative flex h-full min-h-[280px] items-center justify-center overflow-hidden border-t-4 border-t-gold bg-tint p-6 text-center transition-colors duration-500 hover:bg-white md:min-h-[340px] md:p-8">
+      <article className="group relative flex h-full flex-col items-center overflow-hidden border-t-4 border-t-gold bg-tint p-6 text-center transition-colors duration-500 hover:bg-white md:p-8 lg:grid lg:grid-rows-subgrid lg:[grid-row:1/-1]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/brand/logo-b.svg"
@@ -60,29 +62,27 @@ function Card({ h, index }: { h: Highlight; index: number }) {
           className="pointer-events-none absolute -bottom-1 -left-1 h-40 w-40 object-contain opacity-[0.06] transition-transform duration-700 group-hover:-translate-y-2 group-hover:rotate-6"
         />
 
-        <div className="relative w-full">
-          <h3 className="mb-8 text-3xl font-extrabold text-brand-2 md:text-4xl">
-            {isNumber ? (
-              <>
-                {n.toLocaleString(numberLocale[locale])}
-                {suffix}
-              </>
-            ) : (
-              h.title
-            )}
-          </h3>
+        {/* ردیف ۱: تایتل — در هر سه کارت روی یک خط */}
+        <h3 className="relative mb-8 flex items-center justify-center text-3xl font-extrabold text-brand-2 md:text-4xl">
+          {isNumber ? (
+            <>
+              {n.toLocaleString(numberLocale[locale])}
+              {suffix}
+            </>
+          ) : (
+            h.title
+          )}
+        </h3>
 
-          <div className="w-full space-y-6">
-            {h.blocks.map((b, i) => (
-              <div key={i}>
-                {b.heading && (
-                  <p className="mb-2 text-lg font-bold text-brand">{b.heading}</p>
-                )}
-                <p className="leading-8 text-brand/80">{b.text}</p>
-              </div>
-            ))}
+        {/* ردیف ۲ به بعد: هر بلوک در ردیف مخصوص خودش */}
+        {h.blocks.map((b, i) => (
+          <div key={i} className="relative mb-6 w-full last:mb-0">
+            {b.heading && (
+              <p className="mb-2 text-lg font-bold text-brand">{b.heading}</p>
+            )}
+            <p className="leading-8 text-brand/80">{b.text}</p>
           </div>
-        </div>
+        ))}
 
         <span
           aria-hidden="true"
@@ -96,21 +96,21 @@ function Card({ h, index }: { h: Highlight; index: number }) {
 export default function Highlights() {
   const { content } = useLocale();
 
+  // تعداد ردیف‌ها = ۱ (تایتل) + بیشترین تعداد بلوک بین کارت‌ها
+  const maxBlocks = Math.max(...content.highlights.map((h) => h.blocks.length));
+  const rows = 1 + maxBlocks;
+
   return (
     <MotionConfig reducedMotion="user">
-      <section id="highlights" className="page-container overflow-x-clip py-24">
-        <motion.div
-          initial={{ opacity: 0, y: 35 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.7 }}
+      <section
+        id="highlights"
+        aria-label={content.ui.sections.highlights}
+        className="page-container overflow-x-clip py-24"
+      >
+        <div
+          style={{ "--rows": rows } as CSSProperties}
+          className="grid grid-cols-1 divide-y divide-line border-x border-b border-line lg:grid-cols-3 lg:divide-x lg:divide-y-0 lg:[grid-template-rows:repeat(var(--rows),auto)]"
         >
-          <h2 className="mb-12 text-3xl font-bold text-brand md:text-4xl">
-            {content.ui.sections.highlights}
-          </h2>
-        </motion.div>
-
-        <div className="grid grid-cols-1 divide-y divide-line border-x border-b border-line lg:grid-cols-3 lg:divide-x lg:divide-y-0">
           {content.highlights.map((h, i) => (
             <Card key={h.title} h={h} index={i} />
           ))}
@@ -119,3 +119,4 @@ export default function Highlights() {
     </MotionConfig>
   );
 }
+  

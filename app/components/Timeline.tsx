@@ -1,13 +1,13 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import { useLocale } from "@/i18n/LocaleProvider"; // تغییر ۱
+import { useLocale } from "@/i18n/LocaleProvider"; 
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// دایره سال: mid = وسط ردیف، start = بالای ردیف، end = پایین ردیف
+
 function Dot({
   label,
   position = "mid",
@@ -34,7 +34,7 @@ className={`timeline-dot absolute start-0 z-10 flex h-16 w-16 items-center justi
 }
 
 export default function Timeline() {
-  const { history } = useLocale().content; // تغییر ۲
+  const { history } = useLocale().content; 
   const sectionRef = useRef<HTMLElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
 
@@ -68,8 +68,8 @@ export default function Timeline() {
     ease: "none",
     scrollTrigger: {
       trigger: dot,
-      start: "center 66%", // شروع تغییر رنگ
-      end: "center 56%",   // پایان تغییر رنگ
+      start: "center 66%", 
+      end: "center 56%",   
       scrub: true,
     },
   });
@@ -115,7 +115,7 @@ export default function Timeline() {
                   isRange ? "py-28" : ""
                 }`}
               >
-                {/* نوار کلفت بین دو دایره: نشان‌دهنده بازه زمانی */}
+               
                 {isRange && (
                   <span
                     aria-hidden
@@ -123,7 +123,7 @@ export default function Timeline() {
                   />
                 )}
 
-                {/* دایره‌ها */}
+                
                 {isRange ? (
                   <>
                     <Dot label={item.year} position="start" />
@@ -155,7 +155,7 @@ export default function Timeline() {
 
                 <div className={textFirst ? "md:order-2" : "md:order-1"}>
                   {item.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                   
                     <img
                       src={item.image}
                       alt={item.title}

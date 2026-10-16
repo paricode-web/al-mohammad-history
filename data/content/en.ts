@@ -76,11 +76,12 @@ export const en: Content = {
     },
     {
       year: "2016",
-      yearEnd: "2018",
+     yearEnd: "2026",
       title: "Professional activity within the bar association",
-      paragraphs: [
-        "Membership in the Youth Commission of the Tehran Bar Association (1395-1397 SH) and the Legal Aid Commission of the Tehran Bar Association (1397 SH-present).",
-      ],
+  paragraphs: [
+  "Membership in the Youth Commission of the Tehran Bar Association (1395–1397 SH) and the Legal Aid Commission of the Tehran Bar Association (1397–1405 SH).",
+],
+
       image: img(1)
     },
   ],

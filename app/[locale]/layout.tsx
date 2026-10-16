@@ -5,7 +5,7 @@ import "../globals.css";
 import { locales, isLocale, dirOf } from "@/i18n/config";
 import { getContent } from "@/data/content";
 import { LocaleProvider } from "@/i18n/LocaleProvider";
-import SmoothScroll from "../components/SmoothScroll"; // اگه Lenis رو اضافه نکردی، این خط و <SmoothScroll /> رو پاک کن
+import SmoothScroll from "../components/SmoothScroll";
 
 const vazirmatn = Vazirmatn({ subsets: ["arabic", "latin"], variable: "--font-vazirmatn" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });

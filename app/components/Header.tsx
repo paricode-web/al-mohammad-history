@@ -1,36 +1,176 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { locales, type Locale } from "@/i18n/config";
 
 const EASE = "ease-[cubic-bezier(0.77,0,0.175,1)]";
 
-function LangSwitcher({
-  current,
+
+const LANG_LABELS: Record<string, string> = {
+  fa: "فارسی",
+  en: "English",
+  ar: "العربية",
+};
+
+
+const MENU_LABELS: Record<string, string> = {
+  fa: "منو",
+  en: "Menu",
+  ar: "القائمة",
+};
+
+
+function Dropdown({
+  trigger,
+  children,
+  className = "",
+  panelClassName = "min-w-[150px]",
+  dropUp = false,
+}: {
+  trigger: ReactNode;
+  children: (close: () => void) => ReactNode;
+  className?: string;
+  panelClassName?: string;
+  dropUp?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-white/15"
+      >
+        {trigger}
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          aria-hidden
+          className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+
+      <div
+        className={`absolute end-0 z-50 overflow-hidden rounded-xl bg-white py-1 text-brand shadow-lg transition-all duration-200 ${panelClassName} ${
+          dropUp ? "bottom-full mb-2" : "top-full mt-2"
+        } ${open ? "visible translate-y-0 opacity-100" : "invisible -translate-y-1 opacity-0"}`}
+      >
+        {children(() => setOpen(false))}
+      </div>
+    </div>
+  );
+}
+
+
+function NavDropdown({
+  items,
+  locale,
   className = "",
 }: {
-  current: Locale;
+  items: { href: string; label: string }[];
+  locale: Locale;
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-1 ${className}`}>
-      {locales.map((l) => (
-        <a
-          key={l}
-          href={`/${l}`}
-          hrefLang={l}
-          lang={l}
-          aria-current={l === current ? "true" : undefined}
-          className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
-            l === current ? "bg-white/25" : "hover:bg-white/15"
-          }`}
-        >
-          {l.toUpperCase()}
-        </a>
-      ))}
-    </div>
+    <Dropdown
+      className={className}
+      panelClassName="min-w-[200px]"
+      trigger={
+        <>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        
+        </>
+      }
+    >
+      {(close) =>
+        items.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            onClick={close}
+            className="block px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-tint"
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </Dropdown>
+  );
+}
+
+
+function LangDropdown({
+  current,
+  className = "",
+  dropUp = false,
+}: {
+  current: Locale;
+  className?: string;
+  dropUp?: boolean;
+}) {
+  return (
+    <Dropdown
+      className={className}
+      dropUp={dropUp}
+      trigger={
+        <>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z" />
+          </svg>
+          <span>{current.toUpperCase()}</span>
+        </>
+      }
+    >
+      {(close) =>
+        locales.map((l) => (
+          <a
+            key={l}
+            href={`/${l}`}
+            hrefLang={l}
+            lang={l}
+            aria-current={l === current ? "true" : undefined}
+            onClick={close}
+            className={`block px-4 py-2 text-sm font-semibold transition-colors ${
+              l === current ? "bg-tint" : "hover:bg-tint"
+            }`}
+          >
+            {LANG_LABELS[l] ?? l.toUpperCase()}
+          </a>
+        ))
+      }
+    </Dropdown>
   );
 }
 
@@ -69,7 +209,7 @@ export default function Header() {
           open ? "bg-transparent" : scrolled ? "bg-brand shadow-md" : "bg-transparent"
         }`}
       >
-        {/* پس‌زمینه دو رنگ هدر وقتی منو بازه */}
+      
         <div
           aria-hidden
           style={{ transitionDelay: open ? "450ms" : "0ms" }}
@@ -79,16 +219,17 @@ export default function Header() {
         />
 
         <div
-          className={`page-container flex items-center justify-between transition-all duration-500 ${
+          className={`page-container flex items-center justify-between transition-all duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] ${
             scrolled ? "h-20" : "h-24"
           }`}
         >
+     
           <a
             href={`/${locale}`}
             className="relative block h-10 w-[120px] md:h-12 md:w-[150px]"
           >
             <Image
-              src="/images/brand/logo-fa.svg" /* همون مسیر لوگوی فعلی خودت */
+              src="/images/brand/logo-fa.svg"
               alt={ui.logoAlt}
               fill
               priority
@@ -98,36 +239,41 @@ export default function Header() {
             />
           </a>
 
-          <div className="flex items-center gap-4 xl:gap-8">
-            <nav
-              className={`hidden items-center gap-8 text-white transition-opacity duration-300 xl:flex ${
+          
+          <nav
+            className={`hidden items-center justify-center gap-10 text-white transition-opacity duration-300 xl:flex ${
+              open ? "invisible opacity-0" : "opacity-100"
+            }`}
+          >
+            {ui.nav.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="text-base font-semibold transition-opacity hover:opacity-70"
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+
+         
+          <div className="flex items-center gap-2 text-white xl:justify-self-end">
+            <div
+              className={`hidden items-center gap-1 transition-opacity duration-300 md:flex ${
                 open ? "invisible opacity-0" : "opacity-100"
               }`}
             >
-              {ui.nav.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className="text-base font-semibold transition-opacity hover:opacity-70"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
+              <NavDropdown items={ui.nav} locale={locale} className="xl:hidden" />
+              <LangDropdown current={locale} />
+            </div>
 
-            <LangSwitcher
-              current={locale}
-              className={`hidden text-white transition-opacity duration-300 md:flex ${
-                open ? "invisible opacity-0" : "opacity-100"
-              }`}
-            />
-
+            {/* همبرگر: موبایل و دسکتاپ؛ توی تبلت (md تا xl) دراپ‌داون منو جاشو می‌گیره */}
             <button
               type="button"
               aria-label={open ? ui.closeMenu : ui.openMenu}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="relative flex h-8 w-9 flex-col items-center justify-center gap-[7px] text-white"
+              className="relative flex h-8 w-9 flex-col items-center justify-center gap-[7px] md:hidden xl:flex"
             >
               <span className={`h-0.5 w-full bg-current transition-transform duration-500 ${open ? "translate-y-[9px] rotate-45" : ""}`} />
               <span className={`h-0.5 w-full bg-current transition-opacity duration-300 ${open ? "opacity-0" : ""}`} />
@@ -149,7 +295,7 @@ export default function Header() {
         className="fixed inset-0 z-40 overflow-x-hidden overflow-y-auto"
       >
         <div className="flex min-h-full flex-row">
-          {/* پنل سفید: اول در جهت خوانش (راست در فارسی/عربی، چپ در انگلیسی) */}
+          {/* پنل سفید */}
           <div
             className={`relative w-1/2 shrink-0 bg-white text-brand will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open ? "translate-x-0" : "rtl:translate-x-full ltr:-translate-x-full"
@@ -224,7 +370,7 @@ export default function Header() {
                 >
                   {ui.contact.phone}
                 </a>
-                <LangSwitcher current={locale} className="mt-2 flex-wrap" />
+                <LangDropdown current={locale} className="mt-2 w-fit" dropUp />
               </div>
             </div>
           </div>
