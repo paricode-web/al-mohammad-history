@@ -361,16 +361,17 @@ export default function Header() {
         }}
         className="fixed inset-0 z-40 overflow-x-hidden overflow-y-auto"
       >
-        <div className="flex min-h-full flex-row">
+        {/* موبایل: دو پنل زیر هم | md به بالا: دو پنل کنار هم */}
+        <div className="flex min-h-full flex-col md:flex-row">
           {/* پنل سفید */}
           <div
-            className={`relative w-1/2 shrink-0 bg-white text-brand will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
+            className={`relative w-full shrink-0 bg-white text-brand will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open
                 ? "translate-x-0"
                 : "rtl:translate-x-full ltr:-translate-x-full"
             }`}
           >
-            <nav className="flex flex-col gap-1 px-4 pb-12 pt-28 md:px-10 lg:px-[60px] lg:pt-32">
+            <nav className="flex flex-col gap-1 px-5 pb-8 pt-28 sm:px-8 md:px-10 md:pb-12 lg:px-[60px] lg:pt-32">
               {ui.nav.map((item, i) => (
                 <a
                   key={item.href}
@@ -379,7 +380,7 @@ export default function Header() {
                   style={{
                     transitionDelay: open ? `${350 + i * 70}ms` : "0ms",
                   }}
-                  className={`group flex items-center justify-between break-words py-3 text-xl font-extrabold transition-all duration-500 sm:text-2xl md:text-4xl lg:text-5xl ${
+                  className={`group flex items-center justify-between break-words py-3 text-2xl font-extrabold transition-all duration-500 sm:text-3xl md:text-4xl lg:text-5xl ${
                     open
                       ? "translate-y-0 opacity-100"
                       : "translate-y-6 opacity-0"
@@ -403,7 +404,7 @@ export default function Header() {
             <span
               aria-hidden
               style={{ transitionDelay: open ? "650ms" : "0ms" }}
-              className={`pointer-events-none absolute inset-y-0 end-0 w-0.5 origin-top bg-stone transition-transform duration-500 ${
+              className={`pointer-events-none absolute inset-y-0 end-0 hidden w-0.5 origin-top bg-stone md:block transition-transform duration-500 ${
                 open ? "scale-y-100" : "scale-y-0"
               }`}
             />
@@ -411,7 +412,7 @@ export default function Header() {
 
           {/* پنل تیره */}
           <div
-            className={`-ms-px w-1/2 min-w-0 bg-header text-white will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:flex-1 ${
+            className={`w-full min-w-0 flex-1 bg-header text-white will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
               open
                 ? "translate-x-0"
                 : "rtl:-translate-x-full ltr:translate-x-full"
@@ -419,7 +420,7 @@ export default function Header() {
           >
             <div
               style={{ transitionDelay: open ? "500ms" : "0ms" }}
-              className={`flex flex-col gap-8 px-4 pb-12 pt-28 transition-opacity duration-500 md:gap-10 md:px-10 lg:px-[60px] lg:pt-32 ${
+              className={`flex flex-col gap-8 px-5 pb-12 pt-8 transition-opacity duration-500 sm:px-8 md:gap-10 md:px-10 md:pt-28 lg:px-[60px] lg:pt-32 ${
                 open ? "opacity-100" : "opacity-0"
               }`}
             >

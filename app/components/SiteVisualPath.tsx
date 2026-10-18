@@ -314,8 +314,8 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
       {pathData.d && (
         <svg
           aria-hidden="true"
-          // z-5: بالاتر از پس‌زمینه‌ی سکشن‌ها، پایین‌تر از کارت‌ها و دایره‌های تایم‌لاین (z-10)
-          className="pointer-events-none absolute inset-0 z-[5] hidden h-full w-full overflow-visible lg:block"
+          // روی همه‌ی اندازه‌ها فعال است. z-5: بالاتر از پس‌زمینه‌ی سکشن‌ها، پایین‌تر از کارت‌ها و دایره‌های تایم‌لاین (z-10)
+          className="pointer-events-none absolute inset-0 z-[5] h-full w-full overflow-visible"
           viewBox={`0 0 ${pathData.width} ${pathData.height}`}
           preserveAspectRatio="none"
         >
@@ -367,11 +367,11 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              // glow فقط از md به بالا (روی موبایل برای روان بودن اسکرول حذف شده)
+              className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
               style={{
                 pathLength: reduceMotion ? 1 : progress,
                 stroke: "var(--brand-accent)",
-                filter:
-                  "drop-shadow(0 0 6px color-mix(in srgb, var(--brand-accent) 55%, transparent))",
               }}
             />
 
