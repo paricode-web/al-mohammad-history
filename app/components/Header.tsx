@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -8,20 +9,11 @@ import { locales, type Locale } from "@/i18n/config";
 
 const EASE = "ease-[cubic-bezier(0.77,0,0.175,1)]";
 
-
 const LANG_LABELS: Record<string, string> = {
   fa: "فارسی",
   en: "English",
   ar: "العربية",
 };
-
-
-const MENU_LABELS: Record<string, string> = {
-  fa: "منو",
-  en: "Menu",
-  ar: "القائمة",
-};
-
 
 function Dropdown({
   trigger,
@@ -41,14 +33,20 @@ function Dropdown({
 
   useEffect(() => {
     if (!open) return;
+
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
@@ -65,6 +63,7 @@ function Dropdown({
         className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-white/15"
       >
         {trigger}
+
         <svg
           width="12"
           height="12"
@@ -73,7 +72,9 @@ function Dropdown({
           stroke="currentColor"
           strokeWidth="2.5"
           aria-hidden
-          className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          className={`transition-transform duration-300 ${
+            open ? "rotate-180" : ""
+          }`}
         >
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -82,14 +83,17 @@ function Dropdown({
       <div
         className={`absolute end-0 z-50 overflow-hidden rounded-xl bg-white py-1 text-brand shadow-lg transition-all duration-200 ${panelClassName} ${
           dropUp ? "bottom-full mb-2" : "top-full mt-2"
-        } ${open ? "visible translate-y-0 opacity-100" : "invisible -translate-y-1 opacity-0"}`}
+        } ${
+          open
+            ? "visible translate-y-0 opacity-100"
+            : "invisible -translate-y-1 opacity-0"
+        }`}
       >
         {children(() => setOpen(false))}
       </div>
     </div>
   );
 }
-
 
 function NavDropdown({
   items,
@@ -105,12 +109,17 @@ function NavDropdown({
       className={className}
       panelClassName="min-w-[200px]"
       trigger={
-        <>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        
-        </>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden
+        >
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
       }
     >
       {(close) =>
@@ -119,7 +128,7 @@ function NavDropdown({
             key={item.href}
             href={item.href}
             onClick={close}
-            className="block px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-tint"
+            className="block px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-grey"
           >
             {item.label}
           </a>
@@ -128,7 +137,6 @@ function NavDropdown({
     </Dropdown>
   );
 }
-
 
 function LangDropdown({
   current,
@@ -145,10 +153,19 @@ function LangDropdown({
       dropUp={dropUp}
       trigger={
         <>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
             <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z" />
+            <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 3 12 3Z" />
           </svg>
+
           <span>{current.toUpperCase()}</span>
         </>
       }
@@ -163,7 +180,7 @@ function LangDropdown({
             aria-current={l === current ? "true" : undefined}
             onClick={close}
             className={`block px-4 py-2 text-sm font-semibold transition-colors ${
-              l === current ? "bg-tint" : "hover:bg-tint"
+              l === current ? "bg-grey" : "hover:bg-grey"
             }`}
           >
             {LANG_LABELS[l] ?? l.toUpperCase()}
@@ -177,11 +194,13 @@ function LangDropdown({
 export default function Header() {
   const { locale, dir, content } = useLocale();
   const { ui } = content;
+
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
+
     return () => {
       document.body.style.overflow = "";
     };
@@ -191,39 +210,30 @@ export default function Header() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+
     window.addEventListener("keydown", onKey);
+
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
+
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
+
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
     <>
-      <header
-        className={`fixed inset-x-0 top-0 z-50 transition-colors duration-500 ${
-          open ? "bg-transparent" : scrolled ? "bg-brand shadow-md" : "bg-transparent"
-        }`}
-      >
-      
-        <div
-          aria-hidden
-          style={{ transitionDelay: open ? "450ms" : "0ms" }}
-          className={`pointer-events-none absolute inset-0 -z-10 transition-opacity duration-300 rtl:bg-[linear-gradient(to_left,#ffffff_50%,#162c6f_50%)] ltr:bg-[linear-gradient(to_right,#ffffff_50%,#162c6f_50%)] lg:rtl:bg-[linear-gradient(to_left,#ffffff_40%,#162c6f_40%)] lg:ltr:bg-[linear-gradient(to_right,#ffffff_40%,#162c6f_40%)] ${
-            open ? "opacity-100" : "opacity-0"
-          }`}
-        />
-
+      {/* هدر با رنگ جدید */}
+      <header className="fixed inset-x-0 top-0 z-50 bg-header shadow-md">
         <div
           className={`page-container flex items-center justify-between transition-all duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] ${
             scrolled ? "h-20" : "h-24"
           }`}
         >
-     
           <a
             href={`/${locale}`}
             className="relative block h-10 w-[120px] md:h-12 md:w-[150px]"
@@ -239,7 +249,6 @@ export default function Header() {
             />
           </a>
 
-          
           <nav
             className={`hidden items-center justify-center gap-10 text-white transition-opacity duration-300 xl:flex ${
               open ? "invisible opacity-0" : "opacity-100"
@@ -256,18 +265,21 @@ export default function Header() {
             ))}
           </nav>
 
-         
           <div className="flex items-center gap-2 text-white xl:justify-self-end">
             <div
               className={`hidden items-center gap-1 transition-opacity duration-300 md:flex ${
                 open ? "invisible opacity-0" : "opacity-100"
               }`}
             >
-              <NavDropdown items={ui.nav} locale={locale} className="xl:hidden" />
+              <NavDropdown
+                items={ui.nav}
+                locale={locale}
+                className="xl:hidden"
+              />
+
               <LangDropdown current={locale} />
             </div>
 
-            {/* همبرگر: موبایل و دسکتاپ؛ توی تبلت (md تا xl) دراپ‌داون منو جاشو می‌گیره */}
             <button
               type="button"
               aria-label={open ? ui.closeMenu : ui.openMenu}
@@ -275,15 +287,29 @@ export default function Header() {
               onClick={() => setOpen((v) => !v)}
               className="relative flex h-8 w-9 flex-col items-center justify-center gap-[7px] md:hidden xl:flex"
             >
-              <span className={`h-0.5 w-full bg-current transition-transform duration-500 ${open ? "translate-y-[9px] rotate-45" : ""}`} />
-              <span className={`h-0.5 w-full bg-current transition-opacity duration-300 ${open ? "opacity-0" : ""}`} />
-              <span className={`h-0.5 w-full bg-current transition-transform duration-500 ${open ? "-translate-y-[9px] -rotate-45" : ""}`} />
+              <span
+                className={`h-0.5 w-full bg-current transition-transform duration-500 ${
+                  open ? "translate-y-[9px] rotate-45" : ""
+                }`}
+              />
+
+              <span
+                className={`h-0.5 w-full bg-current transition-opacity duration-300 ${
+                  open ? "opacity-0" : ""
+                }`}
+              />
+
+              <span
+                className={`h-0.5 w-full bg-current transition-transform duration-500 ${
+                  open ? "-translate-y-[9px] -rotate-45" : ""
+                }`}
+              />
             </button>
           </div>
         </div>
       </header>
 
-      {/* منو: دو پنل که از دو طرف می‌آیند و وسط صفحه به هم می‌رسند */}
+      {/* منوی دو پنله */}
       <div
         data-lenis-prevent
         aria-hidden={!open}
@@ -295,10 +321,12 @@ export default function Header() {
         className="fixed inset-0 z-40 overflow-x-hidden overflow-y-auto"
       >
         <div className="flex min-h-full flex-row">
-          {/* پنل سفید */}
+          {/* پنل سفید؛ رنگ آن تغییر نکرده */}
           <div
             className={`relative w-1/2 shrink-0 bg-white text-brand will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
-              open ? "translate-x-0" : "rtl:translate-x-full ltr:-translate-x-full"
+              open
+                ? "translate-x-0"
+                : "rtl:translate-x-full ltr:-translate-x-full"
             }`}
           >
             <nav className="flex flex-col gap-1 px-4 pb-12 pt-28 md:px-10 lg:px-[60px] lg:pt-32">
@@ -307,14 +335,19 @@ export default function Header() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  style={{ transitionDelay: open ? `${350 + i * 70}ms` : "0ms" }}
+                  style={{
+                    transitionDelay: open ? `${350 + i * 70}ms` : "0ms",
+                  }}
                   className={`group flex items-center justify-between py-3 text-xl font-extrabold transition-all duration-500 sm:text-2xl md:text-4xl lg:text-5xl ${
-                    open ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+                    open
+                      ? "translate-y-0 opacity-100"
+                      : "translate-y-6 opacity-0"
                   }`}
                 >
                   <span className="transition-transform duration-300 group-hover:scale-110 rtl:origin-right ltr:origin-left">
                     {item.label}
                   </span>
+
                   <span
                     aria-hidden
                     className="hidden text-2xl transition-transform duration-300 md:inline rtl:group-hover:-translate-x-2 ltr:group-hover:translate-x-2"
@@ -325,20 +358,21 @@ export default function Header() {
               ))}
             </nav>
 
-            {/* خط اتصال عمودی روی درز دو پنل */}
             <span
               aria-hidden
               style={{ transitionDelay: open ? "650ms" : "0ms" }}
-              className={`pointer-events-none absolute inset-y-0 end-0 w-0.5 origin-top bg-gold transition-transform duration-500 ${
+              className={`pointer-events-none absolute inset-y-0 end-0 w-0.5 origin-top bg-stone transition-transform duration-500 ${
                 open ? "scale-y-100" : "scale-y-0"
               }`}
             />
           </div>
 
-          {/* پنل آبی */}
+          {/* پنل آبی با رنگ جدید */}
           <div
-            className={`-ms-px w-1/2 min-w-0 bg-brand text-white will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:flex-1 ${
-              open ? "translate-x-0" : "rtl:-translate-x-full ltr:translate-x-full"
+            className={`-ms-px w-1/2 min-w-0 bg-header text-white will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:flex-1 ${
+              open
+                ? "translate-x-0"
+                : "rtl:-translate-x-full ltr:translate-x-full"
             }`}
           >
             <div
@@ -353,16 +387,30 @@ export default function Header() {
                   placeholder={ui.searchPlaceholder}
                   className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-white/70 md:text-base"
                 />
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="shrink-0">
+
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                  className="shrink-0"
+                >
                   <circle cx="11" cy="11" r="7" />
                   <path d="m20 20-3.5-3.5" />
                 </svg>
               </div>
 
               <div className="flex flex-col gap-4 text-sm md:text-xl">
-                <a href={`mailto:${ui.contact.email}`} className="break-all transition-opacity hover:opacity-70">
+                <a
+                  href={`mailto:${ui.contact.email}`}
+                  className="break-all transition-opacity hover:opacity-70"
+                >
                   {ui.contact.email}
                 </a>
+
                 <a
                   href={ui.contact.phoneHref}
                   dir="ltr"
@@ -370,7 +418,12 @@ export default function Header() {
                 >
                   {ui.contact.phone}
                 </a>
-                <LangDropdown current={locale} className="mt-2 w-fit" dropUp />
+
+                <LangDropdown
+                  current={locale}
+                  className="mt-2 w-fit"
+                  dropUp
+                />
               </div>
             </div>
           </div>

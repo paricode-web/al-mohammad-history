@@ -171,11 +171,12 @@ export default function Footer() {
   const isEnglish = locale === "en";
 
   return (
+  
     <footer
-      dir={isEnglish ? "ltr" : "rtl"}
-      lang={locale}
-      className="bg-[#162C6F] text-[#E8EAF1]"
-    >
+  dir={isEnglish ? "ltr" : "rtl"}
+  lang={locale}
+  className="bg-header text-[#E8EAF1]"
+>
       <div className="mx-auto max-w-360 px-6 py-10 md:px-10 lg:px-14">
         <div className="flex flex-col gap-7 border-b border-white/20 pb-7 lg:flex-row lg:items-center lg:justify-between">
           <Link

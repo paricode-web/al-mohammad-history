@@ -1,12 +1,12 @@
+
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import { useLocale } from "@/i18n/LocaleProvider"; 
+import { useLocale } from "@/i18n/LocaleProvider";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
-
 
 function Dot({
   label,
@@ -19,14 +19,12 @@ function Dot({
     position === "mid"
       ? "top-0 md:top-1/2 md:-translate-y-1/2"
       : position === "start"
-      ? "top-0"
-      : "bottom-0";
+        ? "top-0"
+        : "bottom-0";
 
   return (
     <div
-      
-className={`timeline-dot absolute start-0 z-10 flex h-16 w-16 items-center justify-center rounded-full border-4 border-background bg-brand text-sm font-bold text-white md:start-1/2 md:h-20 md:w-20 md:text-base rtl:md:translate-x-1/2 ltr:md:-translate-x-1/2 ${pos}`}
-
+      className={`timeline-dot absolute start-0 z-10 flex h-16 w-16 items-center justify-center rounded-full border-4 border-background bg-accent text-sm font-bold text-white md:start-1/2 md:h-20 md:w-20 md:text-base rtl:md:translate-x-1/2 ltr:md:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
@@ -34,7 +32,7 @@ className={`timeline-dot absolute start-0 z-10 flex h-16 w-16 items-center justi
 }
 
 export default function Timeline() {
-  const { history } = useLocale().content; 
+  const { history } = useLocale().content;
   const sectionRef = useRef<HTMLElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
 
@@ -60,33 +58,21 @@ export default function Timeline() {
         }
       );
 
-    gsap.utils.toArray<HTMLElement>(".timeline-dot").forEach((dot) => {
-  gsap.to(dot, {
-    backgroundColor: "#928D73",
-    borderColor: "#928D73",
-    color: "#FAFAF8",
-    ease: "none",
-    scrollTrigger: {
-      trigger: dot,
-      start: "center 66%", 
-      end: "center 56%",   
-      scrub: true,
-    },
-  });
-});
-      gsap.utils.toArray<HTMLElement>(".timeline-content").forEach((content) => {
-        gsap.from(content, {
-          y: 20,
-          opacity: 0,
-          duration: 0.6,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: content,
-            start: "top 82%",
-            toggleActions: "play none none reverse",
-          },
+      gsap.utils
+        .toArray<HTMLElement>(".timeline-content")
+        .forEach((content) => {
+          gsap.from(content, {
+            y: 20,
+            opacity: 0,
+            duration: 0.6,
+            ease: "power2.out",
+            scrollTrigger: {
+              trigger: content,
+              start: "top 82%",
+              toggleActions: "play none none reverse",
+            },
+          });
         });
-      });
     }, section);
 
     return () => ctx.revert();
@@ -96,10 +82,10 @@ export default function Timeline() {
     <section id="history" ref={sectionRef} className="page-container py-24">
       <div className="relative mx-auto max-w-5xl">
         {/* خط تایم‌لاین */}
-        <div className="absolute bottom-0 start-8 top-0 w-px bg-line md:start-1/2">
+        <div className="absolute bottom-0 start-8 top-0 w-px bg-pebble md:start-1/2">
           <div
             ref={lineRef}
-            className="h-full w-full origin-top scale-y-0 bg-gold"
+            className="h-full w-full origin-top scale-y-0 bg-accent"
           />
         </div>
 
@@ -115,15 +101,13 @@ export default function Timeline() {
                   isRange ? "py-28" : ""
                 }`}
               >
-               
                 {isRange && (
                   <span
                     aria-hidden
-                    className="absolute inset-y-0 start-8 z-0 w-1 bg-gold md:start-1/2 rtl:translate-x-1/2 ltr:-translate-x-1/2"
+                    className="absolute inset-y-0 start-8 z-0 w-1 bg-accent md:start-1/2 rtl:translate-x-1/2 ltr:-translate-x-1/2"
                   />
                 )}
 
-                
                 {isRange ? (
                   <>
                     <Dot label={item.year} position="start" />
@@ -141,7 +125,7 @@ export default function Timeline() {
                   }
                 >
                   <div className="timeline-content">
-                    <h3 className="text-xl font-bold text-brand-2 md:text-2xl">
+                    <h3 className="text-xl font-bold text-brand md:text-2xl">
                       {item.title}
                     </h3>
 
@@ -155,14 +139,13 @@ export default function Timeline() {
 
                 <div className={textFirst ? "md:order-2" : "md:order-1"}>
                   {item.image ? (
-                   
                     <img
                       src={item.image}
                       alt={item.title}
                       className="w-full object-cover"
                     />
                   ) : (
-                    <div className="aspect-[4/3] w-full bg-stone" />
+                    <div className="aspect-[4/3] w-full bg-linen" />
                   )}
                 </div>
               </li>
