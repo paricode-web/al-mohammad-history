@@ -2,7 +2,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MotionConfig, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import {
+  MotionConfig,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "motion/react";
 import type { Highlight } from "@/data/history";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { numberLocale, toNumber } from "@/i18n/numbers";
@@ -67,6 +73,7 @@ function GlassCard({
 
   return (
     <motion.article
+      dir={dir}
       initial={{
         opacity: 0,
         x: reduceMotion ? 0 : index % 2 === 0 ? -28 : 28,
@@ -88,7 +95,7 @@ function GlassCard({
         className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.95)_0%,rgba(255,255,255,0.2)_25%,transparent_48%,rgba(214,211,209,0.08)_75%,rgba(255,255,255,0.7)_100%)]"
       />
 
-      {/* Subtle moving reflection */}
+      {/* Moving reflection */}
       {!reduceMotion && (
         <motion.div
           aria-hidden="true"
@@ -103,7 +110,7 @@ function GlassCard({
         />
       )}
 
-      {/* Fine glass rim */}
+      {/* Glass rim */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/70"
@@ -111,7 +118,6 @@ function GlassCard({
 
       <div className="relative z-10">
         <h3
-          dir={dir}
           className={`font-bold leading-tight tracking-tight text-[#162C6F] transition-colors duration-300 group-hover:text-[#243F88] ${
             isNumber
               ? "text-4xl sm:text-5xl md:text-6xl"
@@ -151,7 +157,7 @@ function GlassCard({
 }
 
 function AchievementPath({ count }: { count: number }) {
-  const pathRef = useRef<SVGSVGElement>(null);
+  const pathRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
   const { scrollYProgress } = useScroll({
@@ -159,11 +165,7 @@ function AchievementPath({ count }: { count: number }) {
     offset: ["start 75%", "end 55%"],
   });
 
-  const pathLength = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [0, 1]
-  );
+  const pathLength = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
   const points = Array.from({ length: count }, (_, index) => ({
     x: index % 2 === 0 ? 180 : 820,
@@ -184,65 +186,72 @@ function AchievementPath({ count }: { count: number }) {
     .join(" ");
 
   return (
-    <svg
+    <div
       ref={pathRef}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-0 hidden h-full w-full overflow-visible lg:block"
-      viewBox={`0 0 1000 ${Math.max(1, 140 + (count - 1) * 300)}`}
-      preserveAspectRatio="none"
-      fill="none"
+      className="pointer-events-none absolute inset-0 z-0 hidden h-full w-full lg:block"
     >
-      {/* Base path */}
-      <path
-        d={path}
-        stroke="#162C6F"
-        strokeOpacity="0.10"
-        strokeWidth="1.5"
-        strokeDasharray="4 8"
-        strokeLinecap="round"
-      />
+      <svg
+        className="absolute inset-0 h-full w-full overflow-visible"
+        viewBox={`0 0 1000 ${Math.max(1, 140 + (count - 1) * 300)}`}
+        preserveAspectRatio="none"
+        fill="none"
+      >
+        {/* Subtle base path */}
+        <path
+          d={path}
+          stroke="#162C6F"
+          strokeOpacity="0.10"
+          strokeWidth="1.5"
+          strokeDasharray="4 8"
+          strokeLinecap="round"
+        />
 
-      {/* Scroll-drawn path */}
-      <motion.path
-        d={path}
-        stroke="#162C6F"
-        strokeOpacity="0.6"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        style={{
-          pathLength: reduceMotion ? 1 : pathLength,
-        }}
-      />
+        {/* Animated path */}
+        <motion.path
+          d={path}
+          stroke="#162C6F"
+          strokeOpacity="0.6"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          style={{
+            pathLength: reduceMotion ? 1 : pathLength,
+          }}
+        />
 
-      {/* Gold connection points */}
-      {points.map((point, index) => (
-        <g key={index}>
-          <circle
-            cx={point.x}
-            cy={point.y}
-            r="8"
-            fill="#C5AA76"
-            fillOpacity="0.12"
-          />
+        {/* Gold connection points */}
+        {points.map((point, index) => (
+          <g key={index}>
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r="8"
+              fill="#C5AA76"
+              fillOpacity="0.12"
+            />
 
-          <motion.circle
-            cx={point.x}
-            cy={point.y}
-            r="3"
-            fill="#C5AA76"
-            initial={{ opacity: 0, scale: 0.5 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{
-              duration: 0.45,
-              delay: index * 0.12,
-              ease: EASE,
-            }}
-            style={{ transformBox: "fill-box", transformOrigin: "center" }}
-          />
-        </g>
-      ))}
-    </svg>
+            <motion.circle
+              cx={point.x}
+              cy={point.y}
+              r="3"
+              fill="#C5AA76"
+              initial={{ opacity: 0, scale: 0.5 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{
+                duration: 0.45,
+                delay: index * 0.12,
+                ease: EASE,
+              }}
+              style={{
+                transformBox: "fill-box",
+                transformOrigin: "center",
+              }}
+            />
+          </g>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -261,11 +270,9 @@ export default function Highlights() {
       >
         <div className="page-container mx-auto">
           <div className="relative mx-auto w-full max-w-6xl">
-            {/* Connecting timeline */}
             <AchievementPath count={content.highlights.length} />
 
-            {/* Staggered glass cards */}
-            <div className="relative z-10 flex flex-col">
+            <div dir="ltr" className="relative z-10 flex flex-col">
               {content.highlights.map((highlight, index) => (
                 <div
                   key={`${highlight.title}-${index}`}
