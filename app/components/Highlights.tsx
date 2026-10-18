@@ -16,22 +16,7 @@ export default function Highlights() {
         aria-label={content.ui.sections.highlights}
         className="page-container py-24 md:py-36"
       >
-        {/* سربرگ تحریریه‌ای */}
-        <div className="grid grid-cols-1 gap-8 border-b border-header/20 pb-10 md:grid-cols-[1fr_0.7fr] md:items-end md:pb-14">
-          <div>
-            <p className="mb-5 text-xs font-semibold tracking-[0.2em] text-golden">
-              AL MOHAMMAD LAW OFFICE
-            </p>
-
-            <h2 className="max-w-2xl text-3xl font-extrabold leading-relaxed text-header md:text-5xl lg:text-6xl">
-              {content.ui.sections.highlights}
-            </h2>
-          </div>
-
-          <p className="max-w-lg text-sm leading-8 text-brand/70 md:justify-self-end md:text-base">
-            میراثی از تجربه، تعهد حرفه‌ای و حضور مستمر در عرصه‌ی خدمات حقوقی.
-          </p>
-        </div>
+       
 
         {/* دستاوردها؛ بدون کارت و پس‌زمینه */}
         <div className="relative">
