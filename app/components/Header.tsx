@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -15,13 +14,21 @@ const LANG_LABELS: Record<string, string> = {
   ar: "العربية",
 };
 
+/** آیتم دراپ‌داون‌ها: padding یکسان در همه‌جا */
+const ITEM_CLASS = "block px-4 py-2.5 text-sm font-semibold transition-colors";
+
+/** بین md و xl همبرگر مخفی است (breakpoint xl در globals.css برابر ۱۴۴۰px است) */
+const NO_HAMBURGER_QUERY = "(min-width: 768px) and (max-width: 1439.98px)";
+
 function Dropdown({
+  label,
   trigger,
   children,
   className = "",
   panelClassName = "min-w-[150px]",
   dropUp = false,
 }: {
+  label: string;
   trigger: ReactNode;
   children: (close: () => void) => ReactNode;
   className?: string;
@@ -34,7 +41,7 @@ function Dropdown({
   useEffect(() => {
     if (!open) return;
 
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
@@ -44,11 +51,11 @@ function Dropdown({
       if (e.key === "Escape") setOpen(false);
     };
 
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
 
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -57,10 +64,11 @@ function Dropdown({
     <div ref={ref} className={`relative ${className}`}>
       <button
         type="button"
+        aria-label={label}
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-white/15"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors hover:bg-white/15"
       >
         {trigger}
 
@@ -81,7 +89,7 @@ function Dropdown({
       </button>
 
       <div
-        className={`absolute end-0 z-50 overflow-hidden rounded-xl bg-white py-1 text-brand shadow-lg transition-all duration-200 ${panelClassName} ${
+        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-white py-1 text-brand shadow-lg transition-all duration-200 ${panelClassName} ${
           dropUp ? "bottom-full mb-2" : "top-full mt-2"
         } ${
           open
@@ -97,15 +105,16 @@ function Dropdown({
 
 function NavDropdown({
   items,
-  locale,
+  label,
   className = "",
 }: {
   items: { href: string; label: string }[];
-  locale: Locale;
+  label: string;
   className?: string;
 }) {
   return (
     <Dropdown
+      label={label}
       className={className}
       panelClassName="min-w-[200px]"
       trigger={
@@ -128,7 +137,7 @@ function NavDropdown({
             key={item.href}
             href={item.href}
             onClick={close}
-            className="block px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-grey"
+            className={`${ITEM_CLASS} hover:bg-grey`}
           >
             {item.label}
           </a>
@@ -149,6 +158,7 @@ function LangDropdown({
 }) {
   return (
     <Dropdown
+      label={LANG_LABELS[current] ?? current.toUpperCase()}
       className={className}
       dropUp={dropUp}
       trigger={
@@ -163,7 +173,7 @@ function LangDropdown({
             aria-hidden
           >
             <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 3 12 3Z" />
+            <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z" />
           </svg>
 
           <span>{current.toUpperCase()}</span>
@@ -179,7 +189,7 @@ function LangDropdown({
             lang={l}
             aria-current={l === current ? "true" : undefined}
             onClick={close}
-            className={`block px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`${ITEM_CLASS} ${
               l === current ? "bg-grey" : "hover:bg-grey"
             }`}
           >
@@ -198,6 +208,7 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  // قفل اسکرول بدنه وقتی منو باز است
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
 
@@ -206,6 +217,7 @@ export default function Header() {
     };
   }, [open]);
 
+  // بستن منو با Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -216,10 +228,34 @@ export default function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // اگر منو باز بود و عرض صفحه به محدوده‌ای رفت که همبرگر ندارد، منو بسته شود
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const mq = window.matchMedia(NO_HAMBURGER_QUERY);
 
-    onScroll();
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setOpen(false);
+    };
+
+    mq.addEventListener("change", onChange);
+
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // فقط وقتی از آستانه رد شد state عوض می‌شود
+  useEffect(() => {
+    let last = window.scrollY > 40;
+
+    setScrolled(last);
+
+    const onScroll = () => {
+      const next = window.scrollY > 40;
+
+      if (next !== last) {
+        last = next;
+        setScrolled(next);
+      }
+    };
+
     window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => window.removeEventListener("scroll", onScroll);
@@ -227,30 +263,30 @@ export default function Header() {
 
   return (
     <>
-      {/* هدر با رنگ جدید */}
       <header className="fixed inset-x-0 top-0 z-50 bg-header shadow-md">
         <div
-          className={`page-container flex items-center justify-between transition-all duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] ${
-            scrolled ? "h-20" : "h-24"
+          className={`page-container flex items-center justify-between gap-6 transition-[height] duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:gap-12 ${
+            scrolled ? "h-16 md:h-20" : "h-20 md:h-24"
           }`}
         >
+          {/* لوگو: همیشه سفید، چون پس‌زمینه‌ی هدر همیشه تیره است */}
           <a
             href={`/${locale}`}
-            className="relative block h-10 w-[120px] md:h-12 md:w-[150px]"
+            className="relative block h-10 w-[120px] shrink-0 md:h-12 md:w-[150px]"
           >
             <Image
               src="/images/brand/logo-fa.svg"
               alt={ui.logoAlt}
               fill
               priority
-              className={`object-contain transition-[filter] duration-500 rtl:object-right ltr:object-left ${
-                open ? "" : "brightness-0 invert"
-              }`}
+              sizes="150px"
+              className="object-contain brightness-0 invert rtl:object-right ltr:object-left"
             />
           </a>
 
           <nav
-            className={`hidden items-center justify-center gap-10 text-white transition-opacity duration-300 xl:flex ${
+            aria-label={ui.openMenu}
+            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-white transition-opacity duration-300 xl:flex 2xl:gap-10 ${
               open ? "invisible opacity-0" : "opacity-100"
             }`}
           >
@@ -258,52 +294,56 @@ export default function Header() {
               <a
                 key={item.href}
                 href={item.href}
-                className="text-base font-semibold transition-opacity hover:opacity-70"
+                className="py-2 text-base font-semibold transition-opacity hover:opacity-70"
               >
                 {item.label}
               </a>
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 text-white xl:justify-self-end">
+          <div className="flex shrink-0 items-center gap-2 text-white xl:justify-self-end">
             <div
-              className={`hidden items-center gap-1 transition-opacity duration-300 md:flex ${
+              className={`hidden items-center gap-2 transition-opacity duration-300 md:flex ${
                 open ? "invisible opacity-0" : "opacity-100"
               }`}
             >
               <NavDropdown
                 items={ui.nav}
-                locale={locale}
+                label={ui.openMenu}
                 className="xl:hidden"
               />
 
               <LangDropdown current={locale} />
             </div>
 
+            {/* همبرگر: موبایل و دسکتاپ بزرگ؛ بین md و xl دراپ‌داون منو جایش را می‌گیرد */}
             <button
               type="button"
               aria-label={open ? ui.closeMenu : ui.openMenu}
               aria-expanded={open}
+              aria-controls="site-menu"
               onClick={() => setOpen((v) => !v)}
-              className="relative flex h-8 w-9 flex-col items-center justify-center gap-[7px] md:hidden xl:flex"
+              className="-me-2 flex h-11 w-11 items-center justify-center md:hidden xl:flex"
             >
-              <span
-                className={`h-0.5 w-full bg-current transition-transform duration-500 ${
-                  open ? "translate-y-[9px] rotate-45" : ""
-                }`}
-              />
+              <span className="flex w-7 flex-col gap-[7px]">
+                <span
+                  className={`h-0.5 w-full bg-current transition-transform duration-500 ${
+                    open ? "translate-y-[9px] rotate-45" : ""
+                  }`}
+                />
 
-              <span
-                className={`h-0.5 w-full bg-current transition-opacity duration-300 ${
-                  open ? "opacity-0" : ""
-                }`}
-              />
+                <span
+                  className={`h-0.5 w-full bg-current transition-opacity duration-300 ${
+                    open ? "opacity-0" : ""
+                  }`}
+                />
 
-              <span
-                className={`h-0.5 w-full bg-current transition-transform duration-500 ${
-                  open ? "-translate-y-[9px] -rotate-45" : ""
-                }`}
-              />
+                <span
+                  className={`h-0.5 w-full bg-current transition-transform duration-500 ${
+                    open ? "-translate-y-[9px] -rotate-45" : ""
+                  }`}
+                />
+              </span>
             </button>
           </div>
         </div>
@@ -311,6 +351,7 @@ export default function Header() {
 
       {/* منوی دو پنله */}
       <div
+        id="site-menu"
         data-lenis-prevent
         aria-hidden={!open}
         style={{
@@ -321,7 +362,7 @@ export default function Header() {
         className="fixed inset-0 z-40 overflow-x-hidden overflow-y-auto"
       >
         <div className="flex min-h-full flex-row">
-          {/* پنل سفید؛ رنگ آن تغییر نکرده */}
+          {/* پنل سفید */}
           <div
             className={`relative w-1/2 shrink-0 bg-white text-brand will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open
@@ -338,7 +379,7 @@ export default function Header() {
                   style={{
                     transitionDelay: open ? `${350 + i * 70}ms` : "0ms",
                   }}
-                  className={`group flex items-center justify-between py-3 text-xl font-extrabold transition-all duration-500 sm:text-2xl md:text-4xl lg:text-5xl ${
+                  className={`group flex items-center justify-between break-words py-3 text-xl font-extrabold transition-all duration-500 sm:text-2xl md:text-4xl lg:text-5xl ${
                     open
                       ? "translate-y-0 opacity-100"
                       : "translate-y-6 opacity-0"
@@ -358,6 +399,7 @@ export default function Header() {
               ))}
             </nav>
 
+            {/* خط عمودی روی درز دو پنل */}
             <span
               aria-hidden
               style={{ transitionDelay: open ? "650ms" : "0ms" }}
@@ -367,7 +409,7 @@ export default function Header() {
             />
           </div>
 
-          {/* پنل آبی با رنگ جدید */}
+          {/* پنل تیره */}
           <div
             className={`-ms-px w-1/2 min-w-0 bg-header text-white will-change-transform transition-transform duration-700 ${EASE} lg:w-auto lg:flex-1 ${
               open
@@ -384,6 +426,7 @@ export default function Header() {
               <div className="flex items-center gap-3 rounded-full bg-white/15 px-4 py-3 md:gap-4 md:px-6 md:py-4">
                 <input
                   type="search"
+                  aria-label={ui.searchPlaceholder}
                   placeholder={ui.searchPlaceholder}
                   className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-white/70 md:text-base"
                 />
@@ -419,11 +462,7 @@ export default function Header() {
                   {ui.contact.phone}
                 </a>
 
-                <LangDropdown
-                  current={locale}
-                  className="mt-2 w-fit"
-                  dropUp
-                />
+                <LangDropdown current={locale} className="mt-2 w-fit" dropUp />
               </div>
             </div>
           </div>
