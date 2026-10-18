@@ -1,7 +1,250 @@
+
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { MotionConfig, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import type { Highlight } from "@/data/history";
 import { useLocale } from "@/i18n/LocaleProvider";
-import { MotionConfig, motion } from "motion/react";
+import { numberLocale, toNumber } from "@/i18n/numbers";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+function useCount(text: string, run: boolean) {
+  const match = text.match(/^([۰-۹٠-٩0-9]+)(.*)$/);
+  const target = match ? toNumber(match[1]) : 0;
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!match || !run) return;
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (reduceMotion) {
+      setCount(target);
+      return;
+    }
+
+    let raf = 0;
+    const start = performance.now();
+    const duration = 1400;
+
+    const tick = (time: number) => {
+      const progress = Math.min((time - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      setCount(Math.round(target * eased));
+
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
+    raf = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(raf);
+  }, [run, target]);
+
+  return {
+    count,
+    suffix: match ? match[2] : "",
+    isNumber: !!match,
+  };
+}
+
+function GlassCard({
+  h,
+  index,
+}: {
+  h: Highlight;
+  index: number;
+}) {
+  const { locale, dir } = useLocale();
+  const [seen, setSeen] = useState(false);
+  const { count, suffix, isNumber } = useCount(h.title, seen);
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.article
+      initial={{
+        opacity: 0,
+        x: reduceMotion ? 0 : index % 2 === 0 ? -28 : 28,
+        y: reduceMotion ? 0 : 14,
+      }}
+      whileInView={{ opacity: 1, x: 0, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{
+        duration: 0.7,
+        ease: EASE,
+        delay: Math.min(index * 0.06, 0.24),
+      }}
+      onViewportEnter={() => setSeen(true)}
+      className="group relative w-full max-w-[520px] overflow-hidden rounded-[28px] border border-white/90 bg-white/55 px-5 py-9 text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(120,113,108,0.10),0_8px_32px_rgba(41,37,36,0.06)] backdrop-blur-2xl transition-[border-color,background-color,box-shadow,transform] duration-500 hover:-translate-y-1 hover:border-white hover:bg-white/75 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_16px_40px_rgba(41,37,36,0.09)] sm:px-8 sm:py-11"
+    >
+      {/* Glass reflection */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.95)_0%,rgba(255,255,255,0.2)_25%,transparent_48%,rgba(214,211,209,0.08)_75%,rgba(255,255,255,0.7)_100%)]"
+      />
+
+      {/* Subtle moving reflection */}
+      {!reduceMotion && (
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute -inset-y-1/2 -left-1/2 z-0 w-1/3 rotate-[20deg] bg-gradient-to-r from-transparent via-white/70 to-transparent opacity-0 blur-md group-hover:opacity-100"
+          animate={{ x: ["0%", "360%"] }}
+          transition={{
+            duration: 2.2,
+            ease: "easeInOut",
+            repeat: Infinity,
+            repeatDelay: 3,
+          }}
+        />
+      )}
+
+      {/* Fine glass rim */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/70"
+      />
+
+      <div className="relative z-10">
+        <h3
+          dir={dir}
+          className={`font-bold leading-tight tracking-tight text-[#162C6F] transition-colors duration-300 group-hover:text-[#243F88] ${
+            isNumber
+              ? "text-4xl sm:text-5xl md:text-6xl"
+              : "text-xl sm:text-2xl md:text-3xl"
+          }`}
+        >
+          {isNumber ? (
+            <>
+              {count.toLocaleString(numberLocale[locale])}
+              {suffix}
+            </>
+          ) : (
+            h.title
+          )}
+        </h3>
+
+        <div className="mx-auto mt-5 h-px w-10 bg-stone-400/70 transition-all duration-500 group-hover:w-16 group-hover:bg-[#162C6F]/60" />
+
+        <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center gap-5">
+          {h.blocks.map((block, i) => (
+            <div key={i} className="w-full">
+              {block.heading && (
+                <h4 className="mb-2 text-base font-semibold leading-8 text-[#162C6F] sm:text-lg">
+                  {block.heading}
+                </h4>
+              )}
+
+              <p className="text-sm leading-8 text-stone-600 sm:text-base">
+                {block.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+function AchievementPath({ count }: { count: number }) {
+  const pathRef = useRef<SVGSVGElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  const { scrollYProgress } = useScroll({
+    target: pathRef,
+    offset: ["start 75%", "end 55%"],
+  });
+
+  const pathLength = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [0, 1]
+  );
+
+  const points = Array.from({ length: count }, (_, index) => ({
+    x: index % 2 === 0 ? 180 : 820,
+    y: 70 + index * 300,
+  }));
+
+  const path = points
+    .map((point, index) => {
+      if (index === 0) {
+        return `M ${point.x} ${point.y}`;
+      }
+
+      const previous = points[index - 1];
+      const middleY = (previous.y + point.y) / 2;
+
+      return `C ${previous.x} ${middleY}, ${point.x} ${middleY}, ${point.x} ${point.y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      ref={pathRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-0 hidden h-full w-full overflow-visible lg:block"
+      viewBox={`0 0 1000 ${Math.max(1, 140 + (count - 1) * 300)}`}
+      preserveAspectRatio="none"
+      fill="none"
+    >
+      {/* Base path */}
+      <path
+        d={path}
+        stroke="#162C6F"
+        strokeOpacity="0.10"
+        strokeWidth="1.5"
+        strokeDasharray="4 8"
+        strokeLinecap="round"
+      />
+
+      {/* Scroll-drawn path */}
+      <motion.path
+        d={path}
+        stroke="#162C6F"
+        strokeOpacity="0.6"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        style={{
+          pathLength: reduceMotion ? 1 : pathLength,
+        }}
+      />
+
+      {/* Gold connection points */}
+      {points.map((point, index) => (
+        <g key={index}>
+          <circle
+            cx={point.x}
+            cy={point.y}
+            r="8"
+            fill="#C5AA76"
+            fillOpacity="0.12"
+          />
+
+          <motion.circle
+            cx={point.x}
+            cy={point.y}
+            r="3"
+            fill="#C5AA76"
+            initial={{ opacity: 0, scale: 0.5 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{
+              duration: 0.45,
+              delay: index * 0.12,
+              ease: EASE,
+            }}
+            style={{ transformBox: "fill-box", transformOrigin: "center" }}
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 export default function Highlights() {
   const { content, dir } = useLocale();
@@ -14,109 +257,29 @@ export default function Highlights() {
         id="highlights"
         dir={dir}
         aria-label={content.ui.sections.highlights}
-        className="page-container py-24 md:py-36"
+        className="relative overflow-hidden bg-white py-16 sm:py-20 md:py-28"
       >
-       
+        <div className="page-container mx-auto">
+          <div className="relative mx-auto w-full max-w-6xl">
+            {/* Connecting timeline */}
+            <AchievementPath count={content.highlights.length} />
 
-        {/* دستاوردها؛ بدون کارت و پس‌زمینه */}
-        <div className="relative">
-          {content.highlights.map((item, index) => {
-            const featured = index === 0;
-
-            return (
-              <motion.article
-                key={item.title}
-                initial={{
-                  opacity: 0,
-                  y: 32,
-                }}
-                whileInView={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                viewport={{
-                  once: true,
-                  amount: 0.15,
-                }}
-                transition={{
-                  duration: 0.75,
-                  delay: 0.08,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className={`group relative grid grid-cols-[64px_minmax(0,1fr)] gap-5 py-10 md:grid-cols-[120px_minmax(0,1fr)] md:gap-10 md:py-14 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-16 ${
-                  index !== content.highlights.length - 1
-                    ? "border-b border-header/15"
-                    : ""
-                }`}
-              >
-                {/* شماره‌ی بزرگ */}
-                <div className="relative">
-                  <span
-                    className={`block text-4xl font-light leading-none tracking-tighter transition-colors duration-500 md:text-6xl lg:text-8xl ${
-                      featured
-                        ? "text-accent"
-                        : "text-header/20 group-hover:text-accent"
-                    }`}
-                  >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-
-                  <motion.span
-                    aria-hidden="true"
-                    className="mt-5 block h-px origin-right bg-accent"
-                    initial={{ scaleX: 0 }}
-                    whileInView={{ scaleX: 1 }}
-                    viewport={{ once: true }}
-                    transition={{
-                      duration: 0.8,
-                      delay: 0.2,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                  />
+            {/* Staggered glass cards */}
+            <div className="relative z-10 flex flex-col">
+              {content.highlights.map((highlight, index) => (
+                <div
+                  key={`${highlight.title}-${index}`}
+                  className={`w-full py-5 sm:py-8 ${
+                    index % 2 === 0
+                      ? "flex justify-start"
+                      : "flex justify-end"
+                  }`}
+                >
+                  <GlassCard h={highlight} index={index} />
                 </div>
-
-                {/* عنوان و توضیحات */}
-                <div className="min-w-0">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
-                    <h3 className="max-w-2xl text-xl font-bold leading-relaxed text-header md:text-3xl lg:text-4xl">
-                      {item.title}
-                    </h3>
-
-                    <span className="hidden pt-2 text-xs text-golden lg:block">
-                      AL MOHAMMAD / {String(index + 1).padStart(2, "0")}
-                    </span>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8">
-                    {item.blocks.map((block, blockIndex) => (
-                      <div key={blockIndex}>
-                        {block.heading && (
-                          <h4 className="mb-3 text-base font-bold text-brand md:text-lg">
-                            {block.heading}
-                          </h4>
-                        )}
-
-                        <p className="max-w-xl text-sm leading-8 text-brand/75 md:text-base">
-                          {block.text}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.article>
-            );
-          })}
-        </div>
-
-        {/* پایان‌بندی مینیمال */}
-        <div className="mt-10 flex items-center justify-between gap-5">
-          <span className="h-px max-w-24 flex-1 bg-accent" />
-
-          <p className="text-xs tracking-wide text-brand/50">
-            {content.ui.sections.highlights}
-          </p>
-
-          <span className="h-px max-w-24 flex-1 bg-header/15" />
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     </MotionConfig>

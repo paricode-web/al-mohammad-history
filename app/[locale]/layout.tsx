@@ -48,6 +48,7 @@ export default async function LocaleLayout({
       <body>
         <LocaleProvider value={{ locale, dir, content: getContent(locale) }}>
           <SmoothScroll />
+          
           {children}
         </LocaleProvider>
       </body>
