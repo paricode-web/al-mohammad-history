@@ -1,122 +1,139 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
-import { MotionConfig, motion } from "motion/react";
-import type { Highlight } from "@/data/history";
 import { useLocale } from "@/i18n/LocaleProvider";
-import { numberLocale, toNumber } from "@/i18n/numbers";
-
-function useCount(text: string, run: boolean) {
-  const m = text.match(/^([۰-۹٠-٩0-9]+)(.*)$/);
-  const target = m ? toNumber(m[1]) : 0;
-  const [n, setN] = useState(0);
-
-  useEffect(() => {
-    if (!m || !run) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setN(target);
-      return;
-    }
-    let raf = 0;
-    const start = performance.now();
-    const duration = 1400;
-    const tick = (t: number) => {
-      const p = Math.min((t - start) / duration, 1);
-      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [run, target]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return { n, suffix: m ? m[2] : "", isNumber: !!m };
-}
-
-function Card({ h, index }: { h: Highlight; index: number }) {
-  const { locale, dir } = useLocale();
-  const [seen, setSeen] = useState(false);
-  const { n, suffix, isNumber } = useCount(h.title, seen);
-
-  return (
-    <motion.div
-      // روی دسکتاپ: این المنت از ردیف‌های گرید والد (subgrid) استفاده می‌کنه
-      className="h-full lg:grid lg:grid-rows-subgrid lg:[grid-row:span_var(--rows)]"
-      initial={{ opacity: 0, x: dir === "rtl" ? 100 : -100 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{
-        duration: 0.8,
-        ease: [0.22, 1, 0.36, 1],
-        delay: index * 0.15,
-      }}
-      onViewportEnter={() => setSeen(true)}
-    >
-      <article className="group relative flex h-full flex-col items-center overflow-hidden border-t-4 border-t-gold bg-tint p-6 text-center transition-colors duration-500 hover:bg-white md:p-8 lg:grid lg:grid-rows-subgrid lg:[grid-row:1/-1]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/images/brand/logo-b.svg"
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-1 -left-1 h-40 w-40 object-contain opacity-[0.06] transition-transform duration-700 group-hover:-translate-y-2 group-hover:rotate-6"
-        />
-
-        {/* ردیف ۱: تایتل — در هر سه کارت روی یک خط */}
-        <h3 className="relative mb-8 flex items-center justify-center text-3xl font-extrabold text-brand-2 md:text-4xl">
-          {isNumber ? (
-            <>
-              {n.toLocaleString(numberLocale[locale])}
-              {suffix}
-            </>
-          ) : (
-            h.title
-          )}
-        </h3>
-
-        {/* ردیف ۲ به بعد: هر بلوک در ردیف مخصوص خودش */}
-        {h.blocks.map((b, i) => (
-          <div key={i} className="relative mb-6 w-full last:mb-0">
-            {b.heading && (
-              <p className="mb-2 text-lg font-bold text-brand">{b.heading}</p>
-            )}
-            <p className="leading-8 text-brand/80">{b.text}</p>
-          </div>
-        ))}
-
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-1 origin-right scale-x-0 bg-gold transition-transform duration-500 group-hover:scale-x-100"
-        />
-      </article>
-    </motion.div>
-  );
-}
+import { MotionConfig, motion } from "motion/react";
 
 export default function Highlights() {
-  const { content } = useLocale();
+  const { content, dir } = useLocale();
 
-  // تعداد ردیف‌ها = ۱ (تایتل) + بیشترین تعداد بلوک بین کارت‌ها
-  const maxBlocks = Math.max(...content.highlights.map((h) => h.blocks.length));
-  const rows = 1 + maxBlocks;
+  if (!content.highlights.length) return null;
 
   return (
     <MotionConfig reducedMotion="user">
       <section
         id="highlights"
+        dir={dir}
         aria-label={content.ui.sections.highlights}
-        className="page-container overflow-x-clip py-24"
+        className="page-container py-24 md:py-36"
       >
-        <div
-          style={{ "--rows": rows } as CSSProperties}
-          className="grid grid-cols-1 divide-y divide-line border-x border-b border-line lg:grid-cols-3 lg:divide-x lg:divide-y-0 lg:[grid-template-rows:repeat(var(--rows),auto)]"
-        >
-          {content.highlights.map((h, i) => (
-            <Card key={h.title} h={h} index={i} />
-          ))}
+        {/* سربرگ تحریریه‌ای */}
+        <div className="grid grid-cols-1 gap-8 border-b border-header/20 pb-10 md:grid-cols-[1fr_0.7fr] md:items-end md:pb-14">
+          <div>
+            <p className="mb-5 text-xs font-semibold tracking-[0.2em] text-golden">
+              AL MOHAMMAD LAW OFFICE
+            </p>
+
+            <h2 className="max-w-2xl text-3xl font-extrabold leading-relaxed text-header md:text-5xl lg:text-6xl">
+              {content.ui.sections.highlights}
+            </h2>
+          </div>
+
+          <p className="max-w-lg text-sm leading-8 text-brand/70 md:justify-self-end md:text-base">
+            میراثی از تجربه، تعهد حرفه‌ای و حضور مستمر در عرصه‌ی خدمات حقوقی.
+          </p>
+        </div>
+
+        {/* دستاوردها؛ بدون کارت و پس‌زمینه */}
+        <div className="relative">
+          {content.highlights.map((item, index) => {
+            const featured = index === 0;
+
+            return (
+              <motion.article
+                key={item.title}
+                initial={{
+                  opacity: 0,
+                  y: 32,
+                }}
+                whileInView={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                viewport={{
+                  once: true,
+                  amount: 0.15,
+                }}
+                transition={{
+                  duration: 0.75,
+                  delay: 0.08,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className={`group relative grid grid-cols-[64px_minmax(0,1fr)] gap-5 py-10 md:grid-cols-[120px_minmax(0,1fr)] md:gap-10 md:py-14 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-16 ${
+                  index !== content.highlights.length - 1
+                    ? "border-b border-header/15"
+                    : ""
+                }`}
+              >
+                {/* شماره‌ی بزرگ */}
+                <div className="relative">
+                  <span
+                    className={`block text-4xl font-light leading-none tracking-tighter transition-colors duration-500 md:text-6xl lg:text-8xl ${
+                      featured
+                        ? "text-accent"
+                        : "text-header/20 group-hover:text-accent"
+                    }`}
+                  >
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+
+                  <motion.span
+                    aria-hidden="true"
+                    className="mt-5 block h-px origin-right bg-accent"
+                    initial={{ scaleX: 0 }}
+                    whileInView={{ scaleX: 1 }}
+                    viewport={{ once: true }}
+                    transition={{
+                      duration: 0.8,
+                      delay: 0.2,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                  />
+                </div>
+
+                {/* عنوان و توضیحات */}
+                <div className="min-w-0">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
+                    <h3 className="max-w-2xl text-xl font-bold leading-relaxed text-header md:text-3xl lg:text-4xl">
+                      {item.title}
+                    </h3>
+
+                    <span className="hidden pt-2 text-xs text-golden lg:block">
+                      AL MOHAMMAD / {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8">
+                    {item.blocks.map((block, blockIndex) => (
+                      <div key={blockIndex}>
+                        {block.heading && (
+                          <h4 className="mb-3 text-base font-bold text-brand md:text-lg">
+                            {block.heading}
+                          </h4>
+                        )}
+
+                        <p className="max-w-xl text-sm leading-8 text-brand/75 md:text-base">
+                          {block.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.article>
+            );
+          })}
+        </div>
+
+        {/* پایان‌بندی مینیمال */}
+        <div className="mt-10 flex items-center justify-between gap-5">
+          <span className="h-px max-w-24 flex-1 bg-accent" />
+
+          <p className="text-xs tracking-wide text-brand/50">
+            {content.ui.sections.highlights}
+          </p>
+
+          <span className="h-px max-w-24 flex-1 bg-header/15" />
         </div>
       </section>
     </MotionConfig>
   );
 }
-  
