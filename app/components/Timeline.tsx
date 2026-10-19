@@ -7,8 +7,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
 function hexToRgba(hex: string, alpha: number) {
   const h = hex.replace("#", "");
+
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
@@ -23,7 +26,8 @@ function Dot({
 }: {
   label: string;
   position?: "mid" | "start" | "end";
-  // فقط موبایل: سمتی که ریل مارپیچ در آن قرار دارد. روی دسکتاپ بی‌اثر است.
+  // فقط موبایل: سمتی که ریل مارپیچ در آن قرار دارد.
+  // روی دسکتاپ بی‌اثر است.
   side?: "start" | "end";
 }) {
   const pos =
@@ -33,7 +37,8 @@ function Dot({
         ? "top-0"
         : "bottom-0";
 
-  const mobileSide = side === "start" ? "start-0" : "end-0 lg:end-auto";
+  const mobileSide =
+    side === "start" ? "start-0" : "end-0 lg:end-auto";
 
   return (
     <div
@@ -61,53 +66,151 @@ export default function Timeline() {
 
     // خواندن رنگ‌ها از توکن‌های globals.css
     const css = getComputedStyle(document.documentElement);
+
     const accent =
       css.getPropertyValue("--brand-accent").trim() || "#C5AA76";
+
     const onAccent =
       css.getPropertyValue("--brand-on-accent").trim() || "#061F38";
 
-    const ctx = gsap.context(() => {
-      gsap.utils.toArray<HTMLElement>(".timeline-dot").forEach((dot) => {
-        gsap.fromTo(
-          dot,
-          {
-            boxShadow: `0 0 0 0 ${hexToRgba(accent, 0)}, 0 0 0 0 ${hexToRgba(accent, 0)}`,
-          },
-          {
-            backgroundColor: accent,
-            borderColor: accent,
-            color: onAccent,
-            boxShadow: `0 0 0 8px ${hexToRgba(accent, 0.15)}, 0 0 40px ${hexToRgba(accent, 0.35)}`,
-            ease: "none",
-            scrollTrigger: {
-              trigger: dot,
-              start: "center 66%",
-              end: "center 56%",
-              scrub: true,
-            },
-          }
-        );
-      });
+    /*
+     * GSAP بر اساس breakpoint دو مجموعه انیمیشن جدا می‌سازد.
+     * تغییر breakpoint به‌صورت خودکار انیمیشن قبلی را پاک می‌کند
+     * و انیمیشن مناسب همان اندازه صفحه را فعال می‌کند.
+     */
+    const mm = gsap.matchMedia(section);
 
-      gsap.utils
-        .toArray<HTMLElement>(".timeline-content")
-        .forEach((content) => {
-          gsap.from(content.children, {
-            y: 24,
-            opacity: 0,
-            filter: "blur(6px)",
-            duration: 0.8,
-            stagger: 0.08,
-            ease: "power3.out",
-            clearProps: "filter",
-            scrollTrigger: {
-              trigger: content,
-              start: "top 85%",
-              toggleActions: "play none none reverse",
-            },
+    /**
+     * موبایل و تبلت:
+     * انیمیشن‌های سبک‌تر برای کاهش هزینه Paint.
+     */
+    mm.add(
+      {
+        isMobile: "(max-width: 1023px)",
+        reduceMotion: "(prefers-reduced-motion: reduce)",
+      },
+      (context) => {
+        const { isMobile, reduceMotion: shouldReduceMotion } =
+          context.conditions as {
+            isMobile: boolean;
+            reduceMotion: boolean;
+          };
+
+        if (!isMobile || shouldReduceMotion) return;
+
+        // انیمیشن دایره‌های سال: بدون box-shadow بزرگ و متحرک
+        gsap.utils
+          .toArray<HTMLElement>(".timeline-dot")
+          .forEach((dot) => {
+            gsap.fromTo(
+              dot,
+              {
+                scale: 0.96,
+              },
+              {
+                scale: 1,
+                backgroundColor: accent,
+                borderColor: accent,
+                color: onAccent,
+                ease: "none",
+                scrollTrigger: {
+                  trigger: dot,
+                  start: "center 66%",
+                  end: "center 56%",
+                  scrub: true,
+                },
+              }
+            );
           });
-        });
-    }, section);
+
+        // متن‌ها: حفظ حرکت و opacity، حذف blur فقط در موبایل
+        gsap.utils
+          .toArray<HTMLElement>(".timeline-content")
+          .forEach((content) => {
+            gsap.from(content.children, {
+              y: 16,
+              opacity: 0,
+              duration: 0.65,
+              stagger: 0.06,
+              ease: "power2.out",
+              scrollTrigger: {
+                trigger: content,
+                start: "top 85%",
+                toggleActions: "play none none reverse",
+              },
+            });
+          });
+      }
+    );
+
+    /**
+     * دسکتاپ:
+     * تنظیمات قبلی حفظ شده‌اند؛ از جمله Blur و سایه‌ی متحرک.
+     */
+    mm.add(
+      {
+        isDesktop: DESKTOP_QUERY,
+        reduceMotion: "(prefers-reduced-motion: reduce)",
+      },
+      (context) => {
+        const { isDesktop, reduceMotion: shouldReduceMotion } =
+          context.conditions as {
+            isDesktop: boolean;
+            reduceMotion: boolean;
+          };
+
+        if (!isDesktop || shouldReduceMotion) return;
+
+        gsap.utils
+          .toArray<HTMLElement>(".timeline-dot")
+          .forEach((dot) => {
+            gsap.fromTo(
+              dot,
+              {
+                boxShadow: `0 0 0 0 ${hexToRgba(
+                  accent,
+                  0
+                )}, 0 0 0 0 ${hexToRgba(accent, 0)}`,
+              },
+              {
+                backgroundColor: accent,
+                borderColor: accent,
+                color: onAccent,
+                boxShadow: `0 0 0 8px ${hexToRgba(
+                  accent,
+                  0.15
+                )}, 0 0 40px ${hexToRgba(accent, 0.35)}`,
+                ease: "none",
+                scrollTrigger: {
+                  trigger: dot,
+                  start: "center 66%",
+                  end: "center 56%",
+                  scrub: true,
+                },
+              }
+            );
+          });
+
+        gsap.utils
+          .toArray<HTMLElement>(".timeline-content")
+          .forEach((content) => {
+            gsap.from(content.children, {
+              y: 24,
+              opacity: 0,
+              filter: "blur(6px)",
+              duration: 0.8,
+              stagger: 0.08,
+              ease: "power3.out",
+              clearProps: "filter",
+              scrollTrigger: {
+                trigger: content,
+                start: "top 85%",
+                toggleActions: "play none none reverse",
+              },
+            });
+          });
+      }
+    );
 
     const refresh = () => ScrollTrigger.refresh();
 
@@ -115,7 +218,7 @@ export default function Timeline() {
 
     return () => {
       window.removeEventListener("load", refresh);
-      ctx.revert();
+      mm.revert();
     };
   }, [history.length]);
 
@@ -127,9 +230,7 @@ export default function Timeline() {
     >
       <div className="page-container">
         <div className="relative mx-auto max-w-5xl">
-          {/* خط پایه تایم‌لاین؛ خط پرشونده را SiteVisualPath رسم می‌کند.
-              موبایل و تبلت: مسیر مارپیچ را SiteVisualPath می‌کشد (این خط فقط
-              نگه‌دارنده‌ی انکرهاست و دیده نمی‌شود) | دسکتاپ: وسط صفحه */}
+          {/* خط پایه تایم‌لاین */}
           <div className="absolute bottom-0 start-8 top-0 w-px bg-transparent lg:start-1/2 lg:bg-light/10">
             <span
               data-line-anchor="timeline-start"
@@ -149,7 +250,7 @@ export default function Timeline() {
               const textFirst = i % 2 === 0;
               const isRange = !!item.yearEnd;
 
-              // فقط موبایل: ردیف‌های زوج ریل در start، فرد ریل در end
+              // فقط موبایل: ریل در ردیف‌های زوج start و فرد end
               const railStart = i % 2 === 0;
               const side = railStart ? "start" : "end";
 
@@ -162,7 +263,7 @@ export default function Timeline() {
                     isRange ? "py-20 lg:py-28" : ""
                   }`}
                 >
-                  {/* انکرهای مسیر مارپیچ موبایل (روی دسکتاپ مخفی) */}
+                  {/* انکرهای مسیر مارپیچ موبایل */}
                   <span
                     data-line-meander="top"
                     aria-hidden="true"
@@ -172,6 +273,7 @@ export default function Timeline() {
                         : "end-[calc(2rem-0.5px)]"
                     }`}
                   />
+
                   <span
                     data-line-meander="bottom"
                     aria-hidden="true"
@@ -184,12 +286,13 @@ export default function Timeline() {
 
                   {isRange && (
                     <>
-                      {/* خط بازه — دسکتاپ (دقیقاً مثل قبل) */}
+                      {/* خط بازه دسکتاپ؛ بدون تغییر */}
                       <span
                         aria-hidden="true"
                         className="absolute inset-y-0 z-0 hidden w-0.5 bg-accent/40 lg:start-1/2 lg:block rtl:translate-x-1/2 ltr:-translate-x-1/2"
                       />
-                      {/* خط بازه — موبایل */}
+
+                      {/* خط بازه موبایل */}
                       <span
                         aria-hidden="true"
                         className={`absolute inset-y-0 z-0 w-0.5 bg-accent/40 lg:hidden ${
@@ -203,8 +306,17 @@ export default function Timeline() {
 
                   {isRange ? (
                     <>
-                      <Dot label={item.year} position="start" side={side} />
-                      <Dot label={item.yearEnd!} position="end" side={side} />
+                      <Dot
+                        label={item.year}
+                        position="start"
+                        side={side}
+                      />
+
+                      <Dot
+                        label={item.yearEnd!}
+                        position="end"
+                        side={side}
+                      />
                     </>
                   ) : (
                     <Dot label={item.year} side={side} />
@@ -242,7 +354,11 @@ export default function Timeline() {
                   </div>
 
                   {/* تصویر رویداد */}
-                  <div className={textFirst ? "lg:order-2" : "lg:order-1"}>
+                  <div
+                    className={
+                      textFirst ? "lg:order-2" : "lg:order-1"
+                    }
+                  >
                     <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
                       {item.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -250,7 +366,15 @@ export default function Timeline() {
                           src={item.image}
                           alt={item.title}
                           loading="lazy"
-                          onLoad={() => ScrollTrigger.refresh()}
+                          onLoad={() => {
+                            // در موبایل aspect ratio ثابت است؛
+                            // refresh برای هر تصویر لازم نیست.
+                            if (
+                              window.matchMedia(DESKTOP_QUERY).matches
+                            ) {
+                              ScrollTrigger.refresh();
+                            }
+                          }}
                           className="aspect-[4/3] w-full object-cover opacity-90 saturate-75 transition duration-700 group-hover/img:scale-105 group-hover/img:opacity-100 group-hover/img:saturate-100 lg:aspect-auto"
                         />
                       ) : (

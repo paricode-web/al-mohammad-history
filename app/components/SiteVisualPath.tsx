@@ -267,7 +267,7 @@ export default function SiteVisualPath({
    * دسکتاپ: تنظیمات اصلی و قبلی بدون تغییر.
    */
   const progress = useSpring(target, {
-    stiffness: 130,
+    stiffness: 220,
     damping: 30,
     mass: 0.5,
     restDelta: 0.0005,
