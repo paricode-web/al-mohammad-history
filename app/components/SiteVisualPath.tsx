@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -29,6 +28,7 @@ type PathData = {
 };
 
 type Table = {
+  xs: number[];
   ys: number[];
   ls: number[];
   total: number;
@@ -62,15 +62,6 @@ const EMPTY: PathData = {
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 function layoutBox(el: HTMLElement, root: HTMLElement) {
   let x = 0;
   let y = 0;
@@ -97,8 +88,8 @@ function makeCurve(from: Point, to: Point) {
 }
 
 /**
- * مسیر مارپیچی موبایل با پیچ‌های نرم‌تر.
- * مسیر دسکتاپ از این تابع استفاده نمی‌کند.
+ * مسیر موبایل با پیچ‌های نرم.
+ * شکل مسیر دسکتاپ تغییری نمی‌کند.
  */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
@@ -155,6 +146,10 @@ function samePath(a: PathData, b: PathData) {
   );
 }
 
+/**
+ * تبدیل مختصات عمودی به پیشرفت مسیر.
+ * جست‌وجوی دودویی انجام می‌شود؛ نیازی به پیمایش کل جدول نیست.
+ */
 function lengthAt(table: Table, y: number) {
   const { ys, ls, total } = table;
   const n = ys.length;
@@ -179,6 +174,47 @@ function lengthAt(table: Table, y: number) {
   return (ls[lo] + (ls[hi] - ls[lo]) * k) / total;
 }
 
+/**
+ * موقعیت سر مسیر را از جدول از پیش محاسبه‌شده به دست می‌آورد.
+ * برخلاف getPointAtLength، این تابع در هر فریم به SVG مراجعه نمی‌کند.
+ */
+function pointAtProgress(table: Table, progress: number): Point {
+  const { xs, ys, ls, total } = table;
+  const n = ls.length;
+
+  if (n === 0 || total <= 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const targetLength = clamp(progress, 0, 1) * total;
+
+  if (targetLength <= 0) {
+    return { x: xs[0], y: ys[0] };
+  }
+
+  if (targetLength >= total) {
+    return { x: xs[n - 1], y: ys[n - 1] };
+  }
+
+  let lo = 0;
+  let hi = n - 1;
+
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+
+    if (ls[mid] <= targetLength) lo = mid;
+    else hi = mid;
+  }
+
+  const span = ls[hi] - ls[lo];
+  const t = span > 0 ? (targetLength - ls[lo]) / span : 0;
+
+  return {
+    x: xs[lo] + (xs[hi] - xs[lo]) * t,
+    y: ys[lo] + (ys[hi] - ys[lo]) * t,
+  };
+}
+
 export default function SiteVisualPath({
   children,
 }: {
@@ -201,7 +237,7 @@ export default function SiteVisualPath({
   const { scrollY } = useScroll();
   const target = useMotionValue(0);
 
-  // تنظیمات اصلی حرکت حفظ شده‌اند.
+  // تنظیمات اصلی حفظ شده‌اند.
   const progress = useSpring(target, {
     stiffness: 130,
     damping: 30,
@@ -210,8 +246,7 @@ export default function SiteVisualPath({
   });
 
   /**
-   * بدون GSAP و بدون box-shadow متحرک:
-   * وضعیت هر دایره فقط زمانی عوض می‌شود که خط از آن عبور کند.
+   * فقط زمانی DOM را تغییر می‌دهد که وضعیت یک نقطه عوض شود.
    */
   const syncDots = useCallback(
     (value: number) => {
@@ -220,18 +255,16 @@ export default function SiteVisualPath({
       const previous = previousDotStatesRef.current;
 
       for (let i = 0; i < dots.length; i++) {
-        const dot = dots[i];
         const start = starts[i];
 
         if (start === undefined) continue;
 
         const passed = reduceMotion || value >= start;
 
-        // از نوشتن DOM در هر فریم جلوگیری می‌کنیم.
         if (previous[i] === passed) continue;
 
         previous[i] = passed;
-        dot.dataset.linePassed = String(passed);
+        dots[i].dataset.linePassed = String(passed);
       }
     },
     [reduceMotion]
@@ -377,7 +410,6 @@ export default function SiteVisualPath({
       timelineEnd &&
       firstHighlight
     ) {
-      // شاخه‌ی دسکتاپ حفظ شده است.
       const verticalEnd = {
         x: timelineStart.x,
         y: timelineEnd.y,
@@ -492,6 +524,10 @@ export default function SiteVisualPath({
 
   useMotionValueEvent(scrollY, "change", update);
 
+  /**
+   * این محاسبات فقط هنگام ساخته‌شدن یا تغییر مسیر انجام می‌شوند.
+   * مختصات مسیر برای استفاده در فریم‌های بعدی ذخیره می‌شوند.
+   */
   useLayoutEffect(() => {
     const path = trackRef.current;
 
@@ -503,6 +539,7 @@ export default function SiteVisualPath({
     const total = path.getTotalLength();
     const steps = clamp(Math.ceil(total / 6), 120, 1500);
 
+    const xs: number[] = [];
     const ys: number[] = [];
     const ls: number[] = [];
 
@@ -510,6 +547,9 @@ export default function SiteVisualPath({
       const length = (total * i) / steps;
       const point = path.getPointAtLength(length);
 
+      xs.push(point.x);
+
+      // حفظ رفتار قبلی برای محاسبه پیشرفت بر اساس محور Y
       ys.push(
         i === 0
           ? point.y
@@ -519,15 +559,14 @@ export default function SiteVisualPath({
       ls.push(length);
     }
 
-    tableRef.current = { ys, ls, total };
+    tableRef.current = { xs, ys, ls, total };
 
     const container = containerRef.current;
 
     if (container) {
       const containerRect = container.getBoundingClientRect();
-      const dots = dotsRef.current;
 
-      dotProgressRef.current = dots.map((dot) => {
+      dotProgressRef.current = dotsRef.current.map((dot) => {
         const rect = dot.getBoundingClientRect();
         const y =
           rect.top + rect.height / 2 - containerRect.top;
@@ -540,15 +579,17 @@ export default function SiteVisualPath({
     syncDots(progress.get());
   }, [pathData.d, progress, syncDots, update]);
 
+  /**
+   * مهم‌ترین بهینه‌سازی:
+   * دیگر در هر فریم SVG getPointAtLength فراخوانی نمی‌شود.
+   * موقعیت سر مسیر از جدول مختصات محاسبه می‌شود.
+   */
   useMotionValueEvent(progress, "change", (value) => {
-    const path = trackRef.current;
     const head = headRef.current;
     const table = tableRef.current;
 
-    if (path && head && table) {
-      const point = path.getPointAtLength(
-        clamp(value, 0, 1) * table.total
-      );
+    if (head && table) {
+      const point = pointAtProgress(table, value);
 
       head.setAttribute(
         "transform",
