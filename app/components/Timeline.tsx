@@ -7,6 +7,10 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+// موبایل: تغییر ارتفاع ویوپورت هنگام بالا/پایین رفتن نوار آدرس باعث
+// refresh کامل ScrollTrigger نشود. روی دسکتاپ اثری ندارد.
+ScrollTrigger.config({ ignoreMobileResize: true });
+
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
 function hexToRgba(hex: string, alpha: number) {
@@ -113,6 +117,7 @@ export default function Timeline() {
                 borderColor: accent,
                 color: onAccent,
                 ease: "none",
+                force3D: true,
                 scrollTrigger: {
                   trigger: dot,
                   start: "center 66%",
@@ -133,6 +138,7 @@ export default function Timeline() {
               duration: 0.65,
               stagger: 0.06,
               ease: "power2.out",
+              force3D: true,
               scrollTrigger: {
                 trigger: content,
                 start: "top 85%",
@@ -366,6 +372,7 @@ export default function Timeline() {
                           src={item.image}
                           alt={item.title}
                           loading="lazy"
+                          decoding="async"
                           onLoad={() => {
                             // در موبایل aspect ratio ثابت است؛
                             // refresh برای هر تصویر لازم نیست.

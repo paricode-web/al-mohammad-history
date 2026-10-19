@@ -63,6 +63,9 @@ const CORNER_RADIUS = 24;
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
+// فقط موبایل: حداقل تغییری که ارزش بازنقاشی دارد (به پیکسل)
+const MOBILE_MIN_DELTA = 0.25;
+
 const EMPTY: PathData = {
   d: "",
   width: 0,
@@ -239,6 +242,24 @@ function pointAtProgress(
   };
 }
 
+/**
+ * وضعیت آخرین مقادیری که روی DOM نوشته شده‌اند (فقط موبایل).
+ * با این کار از نوشتن‌های تکراری و بازنقاشی بی‌اثر جلوگیری می‌شود.
+ */
+type MobileDomState = {
+  offset: number;
+  headX: number;
+  headY: number;
+  headOpacity: string;
+};
+
+const freshMobileState = (): MobileDomState => ({
+  offset: NaN,
+  headX: NaN,
+  headY: NaN,
+  headOpacity: "",
+});
+
 export default function SiteVisualPath({
   children,
 }: {
@@ -254,14 +275,25 @@ export default function SiteVisualPath({
   const dotProgressRef = useRef<number[]>([]);
   const previousDotStatesRef = useRef<boolean[]>([]);
 
+  // فقط موبایل
+  const mobileStateRef = useRef<MobileDomState>(freshMobileState());
+  const vhRef = useRef(0);
+  const vhWidthRef = useRef(0);
+
   const reduceMotion = useReducedMotion();
-  const maskId = `route-mask-${useId().replace(/:/g, "")}`;
+  const uid = useId().replace(/:/g, "");
+  const maskId = `route-mask-${uid}`;
+  const clipId = `route-clip-${uid}`;
 
   const [pathData, setPathData] = useState<PathData>(EMPTY);
   const [isDesktop, setIsDesktop] = useState(false);
 
   const { scrollY } = useScroll();
+
+  // دسکتاپ و موبایل هرکدام target مستقل دارند تا Spring بلااستفاده
+  // در هر فریم اجرا نشود.
   const target = useMotionValue(0);
+  const mobileTarget = useMotionValue(0);
 
   /**
    * دسکتاپ: تنظیمات اصلی و قبلی بدون تغییر.
@@ -274,9 +306,9 @@ export default function SiteVisualPath({
   });
 
   /**
-   * موبایل و تبلت: Spring مستقل با حرکت آرام‌تر.
+   * موبایل و تبلت: Spring مستقل با حرکت آرام‌تر (بدون تغییر).
    */
-  const mobileProgress = useSpring(target, {
+  const mobileProgress = useSpring(mobileTarget, {
     stiffness: 100,
     damping: 32,
     mass: 0.6,
@@ -319,6 +351,17 @@ export default function SiteVisualPath({
     const width = container.offsetWidth;
     const height = container.offsetHeight;
     const desktop = window.matchMedia(DESKTOP_QUERY).matches;
+
+    // موبایل: ارتفاع ویوپورت فقط وقتی عرض عوض شود (چرخش صفحه) ثبت می‌شود.
+    // نوار آدرس مرورگر موبایل هنگام اسکرول ارتفاع را تغییر می‌دهد و اگر
+    // مستقیم خوانده شود، نوک خط مدام می‌پرد.
+    if (
+      !desktop &&
+      (!vhRef.current || vhWidthRef.current !== window.innerWidth)
+    ) {
+      vhRef.current = window.innerHeight;
+      vhWidthRef.current = window.innerWidth;
+    }
 
     const centerOf = (el: Element | null): Point | null => {
       if (!(el instanceof HTMLElement)) return null;
@@ -535,10 +578,24 @@ export default function SiteVisualPath({
     if (!container) return;
 
     let frame = 0;
+    let lastWidth = window.innerWidth;
 
     const schedule = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(measure);
+    };
+
+    // موبایل: باز و بسته شدن نوار آدرس هنگام اسکرول رویداد resize
+    // می‌فرستد که فقط ارتفاع را عوض می‌کند. اندازه‌گیری و ساخت دوباره‌ی
+    // جدول مسیر برای آن لازم نیست. تغییر واقعی چیدمان را ResizeObserver
+    // می‌گیرد. دسکتاپ مثل قبل عمل می‌کند.
+    const onResize = () => {
+      const desktop = window.matchMedia(DESKTOP_QUERY).matches;
+
+      if (!desktop && window.innerWidth === lastWidth) return;
+
+      lastWidth = window.innerWidth;
+      schedule();
     };
 
     measure();
@@ -560,7 +617,7 @@ export default function SiteVisualPath({
       )
       .forEach((el) => observer.observe(el));
 
-    window.addEventListener("resize", schedule);
+    window.addEventListener("resize", onResize);
     window.addEventListener("load", schedule);
 
     document.fonts?.ready.then(schedule);
@@ -569,7 +626,7 @@ export default function SiteVisualPath({
       cancelAnimationFrame(frame);
       observer.disconnect();
 
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("load", schedule);
 
       dotsRef.current = [];
@@ -580,6 +637,7 @@ export default function SiteVisualPath({
 
   /**
    * محاسبه موقعیت هدف خط براساس اسکرول.
+   * دسکتاپ و موبایل هرکدام به target خودشان می‌نویسند.
    */
   const update = useCallback(() => {
     const container = containerRef.current;
@@ -587,7 +645,11 @@ export default function SiteVisualPath({
 
     if (!container || !table) return;
 
-    const vh = window.innerHeight;
+    // موبایل: ارتفاع ثابت (نه innerHeight متغیر)
+    const vh = isDesktop
+      ? window.innerHeight
+      : vhRef.current || window.innerHeight;
+
     const rect = container.getBoundingClientRect();
     const scrollable = rect.height - vh;
 
@@ -597,14 +659,21 @@ export default function SiteVisualPath({
     const headY =
       vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
 
-    target.set(lengthAt(table, headY));
-  }, [target]);
+    const value = lengthAt(table, headY);
+
+    if (isDesktop) {
+      target.set(value);
+    } else {
+      mobileTarget.set(value);
+    }
+  }, [isDesktop, target, mobileTarget]);
 
   useMotionValueEvent(scrollY, "change", update);
 
   /**
    * به‌روزرسانی مسیر موبایل با مقدار mobileProgress.
-   * انیمیشن با Spring موبایل حرکت می‌کند و React در هر فریم render نمی‌شود.
+   * فقط وقتی مقدار واقعاً تغییر کرده به DOM نوشته می‌شود تا
+   * بازنقاشی‌های بی‌اثر حذف شوند.
    */
   const updateMobileVisuals = useCallback(
     (value: number) => {
@@ -614,14 +683,25 @@ export default function SiteVisualPath({
 
       if (!table) return;
 
+      const state = mobileStateRef.current;
       const mobilePath = mobilePathRef.current;
 
       if (mobilePath) {
-        mobilePath.style.strokeOpacity = "1";
+        const offset = reduceMotion
+          ? 0
+          : table.total * (1 - clamp(value, 0, 1));
 
-        mobilePath.style.strokeDashoffset = reduceMotion
-          ? "0"
-          : String(table.total * (1 - clamp(value, 0, 1)));
+        const changed =
+          offset !== state.offset &&
+          (Number.isNaN(state.offset) ||
+            Math.abs(offset - state.offset) >= MOBILE_MIN_DELTA ||
+            offset === 0 ||
+            offset === table.total);
+
+        if (changed) {
+          state.offset = offset;
+          mobilePath.style.strokeDashoffset = offset.toFixed(2);
+        }
       }
 
       if (!reduceMotion) {
@@ -630,13 +710,27 @@ export default function SiteVisualPath({
         if (head) {
           const point = pointAtProgress(table, value, true);
 
-          head.setAttribute(
-            "transform",
-            `translate(${point.x} ${point.y})`
-          );
+          if (
+            Number.isNaN(state.headX) ||
+            Math.abs(point.x - state.headX) >= MOBILE_MIN_DELTA ||
+            Math.abs(point.y - state.headY) >= MOBILE_MIN_DELTA
+          ) {
+            state.headX = point.x;
+            state.headY = point.y;
 
-          head.style.opacity =
+            head.setAttribute(
+              "transform",
+              `translate(${point.x.toFixed(1)} ${point.y.toFixed(1)})`
+            );
+          }
+
+          const opacity =
             value > 0.002 && value < 0.998 ? "1" : "0";
+
+          if (state.headOpacity !== opacity) {
+            state.headOpacity = opacity;
+            head.style.opacity = opacity;
+          }
         }
       }
 
@@ -700,6 +794,9 @@ export default function SiteVisualPath({
       ls,
       total,
     };
+
+    // مسیر یا المان عوض شده؛ کش مقادیر نوشته‌شده نامعتبر است.
+    mobileStateRef.current = freshMobileState();
 
     /**
      * مقداردهی اولیه مسیر موبایل.
@@ -777,6 +874,23 @@ export default function SiteVisualPath({
     syncDots(value);
   });
 
+  /**
+   * موبایل: به‌جای mask (که یک سطح آفلاین به اندازه‌ی کل صفحه می‌سازد)
+   * از clipPath با قانون evenodd استفاده می‌شود. خروجی تصویری یکسان است
+   * اما هزینه‌ی رندر خیلی کمتر است.
+   */
+  const clipD = (() => {
+    const { width: w, height: h, hiddenRect: r } = pathData;
+
+    let d = `M0 0H${w}V${h}H0Z`;
+
+    if (r) {
+      d += ` M${r.x} ${r.y}H${r.x + r.width}V${r.y + r.height}H${r.x}Z`;
+    }
+
+    return d;
+  })();
+
   return (
     <div ref={containerRef} className="relative">
       {children}
@@ -787,37 +901,49 @@ export default function SiteVisualPath({
           className="pointer-events-none absolute inset-0 z-[5] h-full w-full overflow-visible"
           viewBox={`0 0 ${pathData.width} ${pathData.height}`}
           preserveAspectRatio="none"
+          // موبایل: لایه‌ی جداگانه تا بازنقاشی خط، متن‌ها و عکس‌های زیرش
+          // را دوباره رسم نکند.
+          style={isDesktop ? undefined : { willChange: "transform" }}
         >
           <defs>
-            <mask
-              id={maskId}
-              maskUnits="userSpaceOnUse"
-              x="0"
-              y="0"
-              width={pathData.width}
-              height={pathData.height}
-            >
-              <rect
+            {isDesktop ? (
+              <mask
+                id={maskId}
+                maskUnits="userSpaceOnUse"
                 x="0"
                 y="0"
                 width={pathData.width}
                 height={pathData.height}
-                fill="white"
-              />
-
-              {pathData.hiddenRect && (
+              >
                 <rect
-                  x={pathData.hiddenRect.x}
-                  y={pathData.hiddenRect.y}
-                  width={pathData.hiddenRect.width}
-                  height={pathData.hiddenRect.height}
-                  fill="black"
+                  x="0"
+                  y="0"
+                  width={pathData.width}
+                  height={pathData.height}
+                  fill="white"
                 />
-              )}
-            </mask>
+
+                {pathData.hiddenRect && (
+                  <rect
+                    x={pathData.hiddenRect.x}
+                    y={pathData.hiddenRect.y}
+                    width={pathData.hiddenRect.width}
+                    height={pathData.hiddenRect.height}
+                    fill="black"
+                  />
+                )}
+              </mask>
+            ) : (
+              <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
+                <path clipRule="evenodd" d={clipD} />
+              </clipPath>
+            )}
           </defs>
 
-          <g mask={`url(#${maskId})`}>
+          <g
+            mask={isDesktop ? `url(#${maskId})` : undefined}
+            clipPath={isDesktop ? undefined : `url(#${clipId})`}
+          >
             {/* مسیر زمینه */}
             <path
               ref={trackRef}
