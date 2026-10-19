@@ -10,7 +10,7 @@ export default function Hero() {
   const reduceMotion = useReducedMotion();
 
   return (
-    <section className="relative flex min-h-[65svh] items-center overflow-hidden bg-header text-white md:min-h-[70svh]">
+    <section className="relative flex min-h-[65svh] items-center overflow-hidden bg-navy text-light md:min-h-[70svh]">
       {/* Background image */}
       <div
         aria-hidden="true"
@@ -19,7 +19,7 @@ export default function Hero() {
       />
 
       {/* Overlay */}
-      <div aria-hidden="true" className="absolute inset-0 bg-header/70" />
+      <div aria-hidden="true" className="absolute inset-0 bg-navy/70" />
 
       <div className="page-container relative z-10 pb-14 pt-32 sm:pb-16 md:pb-24 md:pt-40">
         {/* نقطه‌ی شروع خط سراسری */}

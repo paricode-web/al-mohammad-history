@@ -68,7 +68,7 @@ function Dropdown({
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors hover:bg-white/15"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors hover:bg-light/10"
       >
         {trigger}
 
@@ -89,7 +89,7 @@ function Dropdown({
       </button>
 
       <div
-        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-white py-1 text-brand shadow-lg transition-all duration-200 ${panelClassName} ${
+        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-light py-1 text-navy shadow-lg transition-all duration-200 ${panelClassName} ${
           dropUp ? "bottom-full mb-2" : "top-full mt-2"
         } ${
           open
@@ -137,7 +137,7 @@ function NavDropdown({
             key={item.href}
             href={item.href}
             onClick={close}
-            className={`${ITEM_CLASS} hover:bg-grey`}
+            className={`${ITEM_CLASS} hover:bg-navy/10`}
           >
             {item.label}
           </a>
@@ -190,7 +190,7 @@ function LangDropdown({
             aria-current={l === current ? "true" : undefined}
             onClick={close}
             className={`${ITEM_CLASS} ${
-              l === current ? "bg-grey" : "hover:bg-grey"
+              l === current ? "bg-navy/10" : "hover:bg-navy/10"
             }`}
           >
             {LANG_LABELS[l] ?? l.toUpperCase()}
@@ -263,7 +263,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 bg-header shadow-md">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-light/10 bg-navy text-light">
         <div
           className={`page-container flex items-center justify-between gap-6 transition-[height] duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:gap-12 ${
             scrolled ? "h-16 md:h-20" : "h-20 md:h-24"
@@ -286,7 +286,7 @@ export default function Header() {
 
           <nav
             aria-label={ui.openMenu}
-            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-white transition-opacity duration-300 xl:flex 2xl:gap-10 ${
+            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-light transition-opacity duration-300 xl:flex 2xl:gap-10 ${
               open ? "invisible opacity-0" : "opacity-100"
             }`}
           >
@@ -301,7 +301,7 @@ export default function Header() {
             ))}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 text-white xl:justify-self-end">
+          <div className="flex shrink-0 items-center gap-2 text-light xl:justify-self-end">
             <div
               className={`hidden items-center gap-2 transition-opacity duration-300 md:flex ${
                 open ? "invisible opacity-0" : "opacity-100"
@@ -365,7 +365,7 @@ export default function Header() {
         <div className="flex min-h-full flex-col md:flex-row">
           {/* پنل سفید */}
           <div
-            className={`relative w-full shrink-0 bg-white text-brand will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
+            className={`relative w-full shrink-0 bg-light text-navy will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open
                 ? "translate-x-0"
                 : "rtl:translate-x-full ltr:-translate-x-full"
@@ -404,7 +404,7 @@ export default function Header() {
             <span
               aria-hidden
               style={{ transitionDelay: open ? "650ms" : "0ms" }}
-              className={`pointer-events-none absolute inset-y-0 end-0 hidden w-0.5 origin-top bg-stone md:block transition-transform duration-500 ${
+              className={`pointer-events-none absolute inset-y-0 end-0 hidden w-0.5 origin-top bg-accent md:block transition-transform duration-500 ${
                 open ? "scale-y-100" : "scale-y-0"
               }`}
             />
@@ -412,7 +412,7 @@ export default function Header() {
 
           {/* پنل تیره */}
           <div
-            className={`w-full min-w-0 flex-1 bg-header text-white will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
+            className={`w-full min-w-0 flex-1 bg-navy text-light will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
               open
                 ? "translate-x-0"
                 : "rtl:-translate-x-full ltr:translate-x-full"
@@ -424,12 +424,12 @@ export default function Header() {
                 open ? "opacity-100" : "opacity-0"
               }`}
             >
-              <div className="flex items-center gap-3 rounded-full bg-white/15 px-4 py-3 md:gap-4 md:px-6 md:py-4">
+              <div className="flex items-center gap-3 rounded-full bg-light/10 px-4 py-3 md:gap-4 md:px-6 md:py-4">
                 <input
                   type="search"
                   aria-label={ui.searchPlaceholder}
                   placeholder={ui.searchPlaceholder}
-                  className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-white/70 md:text-base"
+                  className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-light/60 md:text-base"
                 />
 
                 <svg

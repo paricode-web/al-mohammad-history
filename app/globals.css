@@ -9,77 +9,65 @@
 }
 
 :root {
-  /* ---------- Brand palette ---------- */
-  --brand-blue: #162c6f;       /* Alemohammad Blue / Dark Blue */
-  --brand-blue-hover: #0f2051; /* Blue Hover */
-  --brand-grey: #e8eaf1;       /* Slow Grey */
-  --brand-page: #fafaf8;       /* Basic Page */
+  /* ---------- Brand palette (Figma: alemohammad-brandbook-v3-blue) ---------- */
+  --brand-navy: #001c3a;          /* Base background */
+  --brand-text: #f2f4f6;          /* Text color */
+  --brand-text-secondary: #c4ced8; /* Secondary text gray */
+  --brand-accent: #c5aa76;        /* Buttons and CTA (gold) */
+  --brand-accent-hover: #b59863;  /* Gold hover */
+  --brand-on-accent: #061f38;     /* Text on gold buttons */
 
-  --brand-stone: #c4bda0;      /* Stone */
-  --brand-golden: #928d73;     /* Golden */
-  --brand-pebble: #dddcd4;     /* Pebble */
-  --brand-linen: #e8e6da;      /* Linen */
-  --brand-white: #ffffff;      /* White */
-
-  --brand-accent: #c5aa76;     /* خط و دایره‌های تایم‌لاین */
-  --brand-header: #001c3a;     /* پس‌زمینه‌ی هدر */
-
-  /* ---------- shadcn tokens ---------- */
-  --background: var(--brand-page);
-  --foreground: var(--brand-blue);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* ---------- shadcn tokens mapped to the brand ---------- */
+  --background: var(--brand-navy);
+  --foreground: var(--brand-text);
+  --card: var(--brand-navy);
+  --card-foreground: var(--brand-text);
+  --popover: var(--brand-navy);
+  --popover-foreground: var(--brand-text);
+  --primary: var(--brand-accent);
+  --primary-foreground: var(--brand-on-accent);
+  --secondary: color-mix(in srgb, var(--brand-text) 8%, var(--brand-navy));
+  --secondary-foreground: var(--brand-text);
+  --muted: color-mix(in srgb, var(--brand-text) 8%, var(--brand-navy));
+  --muted-foreground: var(--brand-text-secondary);
+  --accent: var(--brand-accent);
+  --accent-foreground: var(--brand-on-accent);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  --input: color-mix(in srgb, var(--brand-text) 15%, transparent);
+  --ring: var(--brand-accent);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: var(--brand-navy);
+  --sidebar-foreground: var(--brand-text);
+  --sidebar-primary: var(--brand-accent);
+  --sidebar-primary-foreground: var(--brand-on-accent);
+  --sidebar-accent: color-mix(in srgb, var(--brand-text) 8%, var(--brand-navy));
+  --sidebar-accent-foreground: var(--brand-text);
+  --sidebar-border: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  --sidebar-ring: var(--brand-accent);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  /* Brand */
-  --color-brand: var(--brand-blue);
-  --color-brand-hover: var(--brand-blue-hover);
-  --color-grey: var(--brand-grey);
-  --color-page: var(--brand-page);
-
-  --color-stone: var(--brand-stone);
-  --color-golden: var(--brand-golden);
-  --color-pebble: var(--brand-pebble);
-  --color-linen: var(--brand-linen);
-  --color-white: var(--brand-white);
-
+  /* Brand: bg-navy, text-light, text-mist, bg-accent, hover:bg-accent-hover, text-on-accent */
+  --color-navy: var(--brand-navy);
+  --color-header: var(--brand-navy); /* alias قدیمی؛ همان navy */
+  --color-light: var(--brand-text);
+  --color-mist: var(--brand-text-secondary);
   --color-accent: var(--brand-accent);
-  --color-header: var(--brand-header);
+  --color-accent-hover: var(--brand-accent-hover);
+  --color-on-accent: var(--brand-on-accent);
 
+  /* Fonts (next/font variables) */
   --font-sans: var(--font-shabnam), var(--font-dm-sans);
---font-heading: var(--font-shabnam), var(--font-dm-sans);
+  --font-heading: var(--font-shabnam), var(--font-dm-sans);
 
   /* shadcn */
   --color-sidebar-ring: var(--sidebar-ring);
@@ -119,40 +107,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -160,6 +114,7 @@
 
   html {
     @apply font-sans;
+    color-scheme: dark; /* اسکرول‌بار و المان‌های فرم هم تیره می‌شوند */
     scroll-behavior: smooth;
     scrollbar-gutter: stable; /* جلوگیری از پرش صفحه هنگام قفل اسکرول منو */
     scroll-padding-top: 6rem; /* لینک‌های #anchor زیر هدر ثابت نروند */
