@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
@@ -20,9 +19,12 @@ function hexToRgba(hex: string, alpha: number) {
 function Dot({
   label,
   position = "mid",
+  side = "start",
 }: {
   label: string;
   position?: "mid" | "start" | "end";
+  // فقط موبایل: سمتی که ریل مارپیچ در آن قرار دارد. روی دسکتاپ بی‌اثر است.
+  side?: "start" | "end";
 }) {
   const pos =
     position === "mid"
@@ -31,9 +33,11 @@ function Dot({
         ? "top-0"
         : "bottom-0";
 
+  const mobileSide = side === "start" ? "start-0" : "end-0 lg:end-auto";
+
   return (
     <div
-      className={`timeline-dot absolute start-0 z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-light shadow-sm lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
+      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-light shadow-sm lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
@@ -124,8 +128,9 @@ export default function Timeline() {
       <div className="page-container">
         <div className="relative mx-auto max-w-5xl">
           {/* خط پایه تایم‌لاین؛ خط پرشونده را SiteVisualPath رسم می‌کند.
-              موبایل و تبلت: کنار صفحه | دسکتاپ: وسط صفحه */}
-          <div className="absolute bottom-0 start-8 top-0 w-px bg-light/10 lg:start-1/2">
+              موبایل و تبلت: مسیر مارپیچ را SiteVisualPath می‌کشد (این خط فقط
+              نگه‌دارنده‌ی انکرهاست و دیده نمی‌شود) | دسکتاپ: وسط صفحه */}
+          <div className="absolute bottom-0 start-8 top-0 w-px bg-transparent lg:start-1/2 lg:bg-light/10">
             <span
               data-line-anchor="timeline-start"
               aria-hidden="true"
@@ -144,27 +149,65 @@ export default function Timeline() {
               const textFirst = i % 2 === 0;
               const isRange = !!item.yearEnd;
 
+              // فقط موبایل: ردیف‌های زوج ریل در start، فرد ریل در end
+              const railStart = i % 2 === 0;
+              const side = railStart ? "start" : "end";
+
               return (
                 <li
                   key={`${item.year}-${i}`}
-                  className={`relative grid grid-cols-1 items-center gap-6 ps-24 lg:grid-cols-2 lg:gap-24 lg:ps-0 ${
+                  className={`relative grid grid-cols-1 items-center gap-6 ${
+                    railStart ? "ps-24 lg:ps-0" : "pe-24 lg:pe-0"
+                  } lg:grid-cols-2 lg:gap-24 ${
                     isRange ? "py-20 lg:py-28" : ""
                   }`}
                 >
+                  {/* انکرهای مسیر مارپیچ موبایل (روی دسکتاپ مخفی) */}
+                  <span
+                    data-line-meander="top"
+                    aria-hidden="true"
+                    className={`absolute top-0 h-px w-px lg:hidden ${
+                      railStart
+                        ? "start-[calc(2rem-0.5px)]"
+                        : "end-[calc(2rem-0.5px)]"
+                    }`}
+                  />
+                  <span
+                    data-line-meander="bottom"
+                    aria-hidden="true"
+                    className={`absolute bottom-0 h-px w-px lg:hidden ${
+                      railStart
+                        ? "start-[calc(2rem-0.5px)]"
+                        : "end-[calc(2rem-0.5px)]"
+                    }`}
+                  />
+
                   {isRange && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-y-0 start-8 z-0 w-0.5 bg-accent/40 lg:start-1/2 rtl:translate-x-1/2 ltr:-translate-x-1/2"
-                    />
+                    <>
+                      {/* خط بازه — دسکتاپ (دقیقاً مثل قبل) */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-y-0 z-0 hidden w-0.5 bg-accent/40 lg:start-1/2 lg:block rtl:translate-x-1/2 ltr:-translate-x-1/2"
+                      />
+                      {/* خط بازه — موبایل */}
+                      <span
+                        aria-hidden="true"
+                        className={`absolute inset-y-0 z-0 w-0.5 bg-accent/40 lg:hidden ${
+                          railStart
+                            ? "start-[calc(2rem-1px)]"
+                            : "end-[calc(2rem-1px)]"
+                        }`}
+                      />
+                    </>
                   )}
 
                   {isRange ? (
                     <>
-                      <Dot label={item.year} position="start" />
-                      <Dot label={item.yearEnd!} position="end" />
+                      <Dot label={item.year} position="start" side={side} />
+                      <Dot label={item.yearEnd!} position="end" side={side} />
                     </>
                   ) : (
-                    <Dot label={item.year} />
+                    <Dot label={item.year} side={side} />
                   )}
 
                   {/* متن رویداد */}

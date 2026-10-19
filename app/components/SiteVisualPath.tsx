@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -43,7 +42,13 @@ const SELECTORS = {
   highlightPoints: "[data-line-path-point]",
   timelineDots: "[data-timeline-dot]",
   titleWord: "[data-line-title-word]",
+  // فقط موبایل: ابتدا و انتهای ریل هر ردیف تایم‌لاین
+  meanderTop: '[data-line-meander="top"]',
+  meanderBottom: '[data-line-meander="bottom"]',
 };
+
+const DESKTOP_QUERY = "(min-width: 1024px)";
+const CORNER_RADIUS = 24;
 
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
@@ -90,6 +95,30 @@ function makeCurve(from: Point, to: Point) {
   const middleY = (from.y + to.y) / 2;
 
   return `C ${from.x} ${middleY}, ${to.x} ${middleY}, ${to.x} ${to.y}`;
+}
+
+/**
+ * فقط موبایل: از انتهای ریل یک ردیف تا ابتدای ریل ردیف بعد.
+ * مسیر: پایین → پیچ گرد → افقی → پیچ گرد → پایین
+ * (فرض: نقطه‌ی from از قبل با L به همین نقطه رسیده است)
+ */
+function makeStep(from: Point, to: Point) {
+  const run = Math.abs(to.x - from.x);
+  const drop = to.y - from.y;
+  const r = Math.min(CORNER_RADIUS, drop / 2, run / 2);
+
+  if (run < 1 || r < 1) return `L ${to.x} ${to.y}`;
+
+  const midY = (from.y + to.y) / 2;
+  const dir = to.x > from.x ? 1 : -1;
+
+  return [
+    `L ${from.x} ${midY - r}`,
+    `Q ${from.x} ${midY} ${from.x + dir * r} ${midY}`,
+    `L ${to.x - dir * r} ${midY}`,
+    `Q ${to.x} ${midY} ${to.x} ${midY + r}`,
+    `L ${to.x} ${to.y}`,
+  ].join(" ");
 }
 
 function samePath(a: PathData, b: PathData) {
@@ -212,6 +241,8 @@ export default function SiteVisualPath({
     const width = container.offsetWidth;
     const height = container.offsetHeight;
 
+    const isDesktop = window.matchMedia(DESKTOP_QUERY).matches;
+
     const centerOf = (el: Element | null): Point | null => {
       if (!(el instanceof HTMLElement)) return null;
 
@@ -279,9 +310,55 @@ export default function SiteVisualPath({
       return rect.top + rect.height / 2 - containerRect.top;
     });
 
+    // انکرهای مسیر مارپیچ (فقط موبایل)
+    const meanderTops = Array.from(
+      container.querySelectorAll(SELECTORS.meanderTop)
+    )
+      .map((el) => centerOf(el))
+      .filter((p): p is Point => p !== null);
+
+    const meanderBottoms = Array.from(
+      container.querySelectorAll(SELECTORS.meanderBottom)
+    )
+      .map((el) => centerOf(el))
+      .filter((p): p is Point => p !== null);
+
     let d = "";
 
-    if (start && timelineStart && timelineEnd && firstHighlight) {
+    if (
+      !isDesktop &&
+      start &&
+      firstHighlight &&
+      meanderTops.length > 0 &&
+      meanderTops.length === meanderBottoms.length
+    ) {
+      // ── موبایل و تبلت: مسیر مارپیچ ──
+      const lastIndex = meanderTops.length - 1;
+
+      const commands = [
+        `M ${start.x} ${start.y}`,
+        makeCurve(start, meanderTops[0]),
+      ];
+
+      for (let i = 0; i <= lastIndex; i++) {
+        commands.push(`L ${meanderBottoms[i].x} ${meanderBottoms[i].y}`);
+
+        if (i < lastIndex) {
+          commands.push(makeStep(meanderBottoms[i], meanderTops[i + 1]));
+        }
+      }
+
+      commands.push(makeCurve(meanderBottoms[lastIndex], firstHighlight));
+
+      for (let i = 1; i < highlightPoints.length; i++) {
+        commands.push(
+          makeCurve(highlightPoints[i - 1], highlightPoints[i])
+        );
+      }
+
+      d = commands.join(" ");
+    } else if (start && timelineStart && timelineEnd && firstHighlight) {
+      // ── دسکتاپ: بدون تغییر ──
       const verticalEnd = {
         x: timelineStart.x,
         y: timelineEnd.y,
