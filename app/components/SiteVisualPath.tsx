@@ -10,7 +10,6 @@ import {
 } from "react";
 
 import {
-  motion,
   useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
@@ -63,15 +62,25 @@ const CORNER_RADIUS = 24;
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
-// فقط موبایل: حداقل تغییری که ارزش بازنقاشی دارد (به پیکسل)
-const MOBILE_MIN_DELTA = 0.25;
+// حداقل تغییری که ارزش بازنقاشی دارد (به پیکسل)
+const MIN_DELTA = 0.25;
 
-const EMPTY: PathData = {
-  d: "",
-  width: 0,
-  height: 0,
-  hiddenRect: null,
-};
+/**
+ * نوع درخشش خط روی دسکتاپ:
+ *
+ * "layered" : دو لایه‌ی نیمه‌شفاف پهن‌تر زیر خط (بدون filter؛ بسیار سبک‌تر)
+ * "filter"  : drop-shadow اصلی (سنگین‌ترین حالت؛ ظاهر دقیقاً مثل قبل)
+ * "none"    : بدون درخشش
+ *
+ * موبایل و تبلت (زیر ۱۰۲۴px) هیچ درخششی ندارند.
+ */
+type GlowMode = "layered" | "filter" | "none";
+const GLOW_MODE = "layered" as GlowMode;
+
+const GLOW_LAYERS = [
+  { width: 12, opacity: 0.08 },
+  { width: 6, opacity: 0.16 },
+];
 
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
@@ -103,7 +112,6 @@ function makeCurve(from: Point, to: Point) {
 
 /**
  * مسیر موبایل با پیچ‌های نرم.
- * شکل مسیر دسکتاپ تغییری نمی‌کند.
  */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
@@ -194,7 +202,7 @@ function lengthAt(table: Table, y: number) {
  * به دست آوردن موقعیت سر مسیر بدون فراخوانی SVG در هر فریم.
  *
  * rawYs برای حرکت روی مختصات واقعی منحنی موبایل استفاده می‌شود.
- * دسکتاپ همچنان از محاسبه‌ی قبلی استفاده می‌کند.
+ * دسکتاپ از Y یکنواخت استفاده می‌کند.
  */
 function pointAtProgress(
   table: Table,
@@ -243,17 +251,17 @@ function pointAtProgress(
 }
 
 /**
- * وضعیت آخرین مقادیری که روی DOM نوشته شده‌اند (فقط موبایل).
+ * آخرین مقادیری که روی DOM نوشته شده‌اند.
  * با این کار از نوشتن‌های تکراری و بازنقاشی بی‌اثر جلوگیری می‌شود.
  */
-type MobileDomState = {
+type DomState = {
   offset: number;
   headX: number;
   headY: number;
   headOpacity: string;
 };
 
-const freshMobileState = (): MobileDomState => ({
+const freshDomState = (): DomState => ({
   offset: NaN,
   headX: NaN,
   headY: NaN,
@@ -267,7 +275,9 @@ export default function SiteVisualPath({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<SVGPathElement>(null);
-  const mobilePathRef = useRef<SVGPathElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const glowARef = useRef<SVGPathElement>(null);
+  const glowBRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGGElement>(null);
   const tableRef = useRef<Table | null>(null);
 
@@ -275,17 +285,16 @@ export default function SiteVisualPath({
   const dotProgressRef = useRef<number[]>([]);
   const previousDotStatesRef = useRef<boolean[]>([]);
 
-  // فقط موبایل
-  const mobileStateRef = useRef<MobileDomState>(freshMobileState());
+  const domStateRef = useRef<DomState>(freshDomState());
+
+  // فقط موبایل: ارتفاع ثابت ویوپورت (مستقل از نوار آدرس)
   const vhRef = useRef(0);
   const vhWidthRef = useRef(0);
 
   const reduceMotion = useReducedMotion();
-  const uid = useId().replace(/:/g, "");
-  const maskId = `route-mask-${uid}`;
-  const clipId = `route-clip-${uid}`;
+  const clipId = `route-clip-${useId().replace(/:/g, "")}`;
 
-  const [pathData, setPathData] = useState<PathData>(EMPTY);
+  const [pathData, setPathData] = useState<PathData>(EMPTY_PATH());
   const [isDesktop, setIsDesktop] = useState(false);
 
   const { scrollY } = useScroll();
@@ -296,7 +305,7 @@ export default function SiteVisualPath({
   const mobileTarget = useMotionValue(0);
 
   /**
-   * دسکتاپ: تنظیمات اصلی و قبلی بدون تغییر.
+   * دسکتاپ: Spring اصلی (بدون تغییر).
    */
   const progress = useSpring(target, {
     stiffness: 220,
@@ -671,22 +680,20 @@ export default function SiteVisualPath({
   useMotionValueEvent(scrollY, "change", update);
 
   /**
-   * به‌روزرسانی مسیر موبایل با مقدار mobileProgress.
+   * رسم مسیر برای هر دو حالت.
    * فقط وقتی مقدار واقعاً تغییر کرده به DOM نوشته می‌شود تا
-   * بازنقاشی‌های بی‌اثر حذف شوند.
+   * بازنقاشی‌های بی‌اثر حذف شوند. React در هر فریم render نمی‌شود.
    */
-  const updateMobileVisuals = useCallback(
+  const applyProgress = useCallback(
     (value: number) => {
-      if (isDesktop) return;
-
       const table = tableRef.current;
 
       if (!table) return;
 
-      const state = mobileStateRef.current;
-      const mobilePath = mobilePathRef.current;
+      const state = domStateRef.current;
+      const path = pathRef.current;
 
-      if (mobilePath) {
+      if (path) {
         const offset = reduceMotion
           ? 0
           : table.total * (1 - clamp(value, 0, 1));
@@ -694,13 +701,24 @@ export default function SiteVisualPath({
         const changed =
           offset !== state.offset &&
           (Number.isNaN(state.offset) ||
-            Math.abs(offset - state.offset) >= MOBILE_MIN_DELTA ||
+            Math.abs(offset - state.offset) >= MIN_DELTA ||
             offset === 0 ||
             offset === table.total);
 
         if (changed) {
           state.offset = offset;
-          mobilePath.style.strokeDashoffset = offset.toFixed(2);
+
+          const v = offset.toFixed(2);
+
+          path.style.strokeDashoffset = v;
+
+          if (glowARef.current) {
+            glowARef.current.style.strokeDashoffset = v;
+          }
+
+          if (glowBRef.current) {
+            glowBRef.current.style.strokeDashoffset = v;
+          }
         }
       }
 
@@ -708,12 +726,13 @@ export default function SiteVisualPath({
         const head = headRef.current;
 
         if (head) {
-          const point = pointAtProgress(table, value, true);
+          // موبایل روی منحنی واقعی حرکت می‌کند، دسکتاپ مثل قبل
+          const point = pointAtProgress(table, value, !isDesktop);
 
           if (
             Number.isNaN(state.headX) ||
-            Math.abs(point.x - state.headX) >= MOBILE_MIN_DELTA ||
-            Math.abs(point.y - state.headY) >= MOBILE_MIN_DELTA
+            Math.abs(point.x - state.headX) >= MIN_DELTA ||
+            Math.abs(point.y - state.headY) >= MIN_DELTA
           ) {
             state.headX = point.x;
             state.headY = point.y;
@@ -739,14 +758,13 @@ export default function SiteVisualPath({
     [isDesktop, reduceMotion, syncDots]
   );
 
-  /**
-   * موبایل: Spring مستقل.
-   */
-  useMotionValueEvent(
-    mobileProgress,
-    "change",
-    updateMobileVisuals
-  );
+  useMotionValueEvent(progress, "change", (value) => {
+    if (isDesktop) applyProgress(value);
+  });
+
+  useMotionValueEvent(mobileProgress, "change", (value) => {
+    if (!isDesktop) applyProgress(value);
+  });
 
   /**
    * پیش‌محاسبه جدول مختصات مسیر.
@@ -796,24 +814,30 @@ export default function SiteVisualPath({
     };
 
     // مسیر یا المان عوض شده؛ کش مقادیر نوشته‌شده نامعتبر است.
-    mobileStateRef.current = freshMobileState();
+    domStateRef.current = freshDomState();
 
     /**
-     * مقداردهی اولیه مسیر موبایل.
+     * مقداردهی اولیه‌ی مسیرها (خط اصلی و لایه‌های درخشش).
      */
-    const mobilePath = mobilePathRef.current;
+    const current = isDesktop
+      ? progress.get()
+      : mobileProgress.get();
 
-    if (!isDesktop && mobilePath) {
-      mobilePath.style.strokeDasharray = String(total);
+    const offset = reduceMotion
+      ? 0
+      : total * (1 - clamp(current, 0, 1));
 
-      mobilePath.style.strokeDashoffset = reduceMotion
-        ? "0"
-        : String(
-            total * (1 - clamp(mobileProgress.get(), 0, 1))
-          );
+    const init = (el: SVGPathElement | null, opacity: number) => {
+      if (!el) return;
 
-      mobilePath.style.strokeOpacity = "1";
-    }
+      el.style.strokeDasharray = String(total);
+      el.style.strokeDashoffset = String(offset);
+      el.style.strokeOpacity = String(opacity);
+    };
+
+    init(pathRef.current, 1);
+    init(glowARef.current, GLOW_LAYERS[0].opacity);
+    init(glowBRef.current, GLOW_LAYERS[1].opacity);
 
     /**
      * محاسبه پیشرفت نقاط تایم‌لاین.
@@ -833,51 +857,21 @@ export default function SiteVisualPath({
     }
 
     update();
-
-    if (isDesktop) {
-      syncDots(progress.get());
-    } else {
-      updateMobileVisuals(mobileProgress.get());
-    }
+    applyProgress(current);
   }, [
     pathData.d,
     isDesktop,
     reduceMotion,
     progress,
     mobileProgress,
-    syncDots,
     update,
-    updateMobileVisuals,
+    applyProgress,
   ]);
 
   /**
-   * دسکتاپ: همان انیمیشن Spring قبلی.
-   */
-  useMotionValueEvent(progress, "change", (value) => {
-    if (!isDesktop) return;
-
-    const head = headRef.current;
-    const table = tableRef.current;
-
-    if (head && table) {
-      const point = pointAtProgress(table, value);
-
-      head.setAttribute(
-        "transform",
-        `translate(${point.x} ${point.y})`
-      );
-
-      head.style.opacity =
-        value > 0.002 && value < 0.998 ? "1" : "0";
-    }
-
-    syncDots(value);
-  });
-
-  /**
-   * موبایل: به‌جای mask (که یک سطح آفلاین به اندازه‌ی کل صفحه می‌سازد)
-   * از clipPath با قانون evenodd استفاده می‌شود. خروجی تصویری یکسان است
-   * اما هزینه‌ی رندر خیلی کمتر است.
+   * clipPath با قانون evenodd به‌جای mask:
+   * خروجی بصری یکسان است ولی سطح رندر آفلاین به اندازه‌ی کل صفحه
+   * ساخته نمی‌شود.
    */
   const clipD = (() => {
     const { width: w, height: h, hiddenRect: r } = pathData;
@@ -891,6 +885,9 @@ export default function SiteVisualPath({
     return d;
   })();
 
+  const showLayeredGlow = isDesktop && GLOW_MODE === "layered";
+  const useFilterGlow = isDesktop && GLOW_MODE === "filter";
+
   return (
     <div ref={containerRef} className="relative">
       {children}
@@ -901,49 +898,17 @@ export default function SiteVisualPath({
           className="pointer-events-none absolute inset-0 z-[5] h-full w-full overflow-visible"
           viewBox={`0 0 ${pathData.width} ${pathData.height}`}
           preserveAspectRatio="none"
-          // موبایل: لایه‌ی جداگانه تا بازنقاشی خط، متن‌ها و عکس‌های زیرش
+          // لایه‌ی جداگانه تا بازنقاشی خط، متن‌ها و عکس‌های زیرش
           // را دوباره رسم نکند.
-          style={isDesktop ? undefined : { willChange: "transform" }}
+          style={{ willChange: "transform" }}
         >
           <defs>
-            {isDesktop ? (
-              <mask
-                id={maskId}
-                maskUnits="userSpaceOnUse"
-                x="0"
-                y="0"
-                width={pathData.width}
-                height={pathData.height}
-              >
-                <rect
-                  x="0"
-                  y="0"
-                  width={pathData.width}
-                  height={pathData.height}
-                  fill="white"
-                />
-
-                {pathData.hiddenRect && (
-                  <rect
-                    x={pathData.hiddenRect.x}
-                    y={pathData.hiddenRect.y}
-                    width={pathData.hiddenRect.width}
-                    height={pathData.hiddenRect.height}
-                    fill="black"
-                  />
-                )}
-              </mask>
-            ) : (
-              <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
-                <path clipRule="evenodd" d={clipD} />
-              </clipPath>
-            )}
+            <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
+              <path clipRule="evenodd" d={clipD} />
+            </clipPath>
           </defs>
 
-          <g
-            mask={isDesktop ? `url(#${maskId})` : undefined}
-            clipPath={isDesktop ? undefined : `url(#${clipId})`}
-          >
+          <g clipPath={`url(#${clipId})`}>
             {/* مسیر زمینه */}
             <path
               ref={trackRef}
@@ -958,44 +923,49 @@ export default function SiteVisualPath({
               }}
             />
 
-            {isDesktop ? (
-              /*
-               * دسکتاپ:
-               * motion.path، pathLength و Spring قبلی حفظ شده‌اند.
-               */
-              <motion.path
-                d={pathData.d}
-                fill="none"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
-                style={{
-                  pathLength: reduceMotion ? 1 : progress,
-                  stroke: "var(--brand-accent)",
-                }}
-              />
-            ) : (
-              /*
-               * موبایل:
-               * رسم تدریجی مسیر با strokeDashoffset و mobileProgress.
-               */
-              <path
-                ref={mobilePathRef}
-                d={pathData.d}
-                fill="none"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
-                style={{
-                  stroke: "var(--brand-accent)",
-                  strokeDasharray: 1,
-                  strokeDashoffset: 1,
-                  strokeOpacity: 0,
-                }}
-              />
-            )}
+            {/* درخشش دسکتاپ: لایه‌های پهن‌تر زیر خط اصلی، بدون filter */}
+            {showLayeredGlow &&
+              GLOW_LAYERS.map((layer, i) => (
+                <path
+                  key={layer.width}
+                  ref={i === 0 ? glowARef : glowBRef}
+                  d={pathData.d}
+                  fill="none"
+                  strokeWidth={layer.width}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    stroke: "var(--brand-accent)",
+                    strokeDasharray: 1,
+                    strokeDashoffset: 1,
+                    strokeOpacity: 0,
+                  }}
+                />
+              ))}
+
+            {/*
+             * خط پیشرفت: رسم تدریجی با strokeDashoffset
+             * (دسکتاپ با Spring خودش، موبایل با Spring خودش).
+             */}
+            <path
+              ref={pathRef}
+              d={pathData.d}
+              fill="none"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={
+                useFilterGlow
+                  ? "[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
+                  : undefined
+              }
+              style={{
+                stroke: "var(--brand-accent)",
+                strokeDasharray: 1,
+                strokeDashoffset: 1,
+                strokeOpacity: 0,
+              }}
+            />
 
             {!reduceMotion && (
               <g ref={headRef} style={{ opacity: 0 }}>
@@ -1020,4 +990,13 @@ export default function SiteVisualPath({
       )}
     </div>
   );
+}
+
+function EMPTY_PATH(): PathData {
+  return {
+    d: "",
+    width: 0,
+    height: 0,
+    hiddenRect: null,
+  };
 }
