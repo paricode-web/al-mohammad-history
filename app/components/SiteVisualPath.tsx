@@ -70,19 +70,17 @@ const EMPTY: PathData = {
   hiddenRect: null,
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
+const clamp = (v: number, min: number, max: number) =>
+  Math.min(Math.max(v, min), max);
 
 function layoutBox(el: HTMLElement, root: HTMLElement) {
   let x = 0;
   let y = 0;
-
   let node: HTMLElement | null = el;
 
   while (node && node !== root) {
     x += node.offsetLeft;
     y += node.offsetTop;
-
     node = node.offsetParent as HTMLElement | null;
   }
 
@@ -100,6 +98,10 @@ function makeCurve(from: Point, to: Point) {
   return `C ${from.x} ${middleY}, ${to.x} ${middleY}, ${to.x} ${to.y}`;
 }
 
+/**
+ * مسیر موبایل با پیچ‌های نرم.
+ * شکل مسیر دسکتاپ تغییری نمی‌کند.
+ */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
   const drop = to.y - from.y;
@@ -156,14 +158,13 @@ function samePath(a: PathData, b: PathData) {
 }
 
 /**
- * تبدیل موقعیت عمودی به پیشرفت مسیر با جست‌وجوی دودویی.
+ * تبدیل مختصات عمودی به پیشرفت مسیر با جست‌وجوی دودویی.
  */
 function lengthAt(table: Table, y: number) {
   const { ys, ls, total } = table;
   const n = ys.length;
 
   if (n < 2 || total <= 0) return 0;
-
   if (y <= ys[0]) return 0;
   if (y >= ys[n - 1]) return 1;
 
@@ -187,7 +188,10 @@ function lengthAt(table: Table, y: number) {
 }
 
 /**
- * محاسبه موقعیت سر مسیر از جدول مختصات از پیش محاسبه‌شده.
+ * به دست آوردن موقعیت سر مسیر بدون فراخوانی SVG در هر فریم.
+ *
+ * rawYs برای حرکت روی مختصات واقعی منحنی موبایل استفاده می‌شود.
+ * دسکتاپ همچنان از محاسبه‌ی قبلی استفاده می‌کند.
  */
 function pointAtProgress(
   table: Table,
@@ -227,11 +231,7 @@ function pointAtProgress(
   }
 
   const span = ls[hi] - ls[lo];
-
-  const t =
-    span > 0
-      ? (targetLength - ls[lo]) / span
-      : 0;
+  const t = span > 0 ? (targetLength - ls[lo]) / span : 0;
 
   return {
     x: xs[lo] + (xs[hi] - xs[lo]) * t,
@@ -261,11 +261,10 @@ export default function SiteVisualPath({
   const [isDesktop, setIsDesktop] = useState(false);
 
   const { scrollY } = useScroll();
-
   const target = useMotionValue(0);
 
   /**
-   * دسکتاپ: تنظیمات Spring قبلی بدون تغییر.
+   * دسکتاپ: تنظیمات اصلی و قبلی بدون تغییر.
    */
   const progress = useSpring(target, {
     stiffness: 130,
@@ -275,7 +274,7 @@ export default function SiteVisualPath({
   });
 
   /**
-   * موبایل: Spring جداگانه با حرکت کمی آرام‌تر.
+   * موبایل و تبلت: Spring مستقل با حرکت آرام‌تر.
    */
   const mobileProgress = useSpring(target, {
     stiffness: 100,
@@ -285,7 +284,7 @@ export default function SiteVisualPath({
   });
 
   /**
-   * به‌روزرسانی وضعیت نقاط تایم‌لاین فقط هنگام تغییر وضعیت هر نقطه.
+   * تغییر DOM فقط زمانی انجام می‌شود که وضعیت یک نقطه عوض شود.
    */
   const syncDots = useCallback(
     (value: number) => {
@@ -310,7 +309,7 @@ export default function SiteVisualPath({
   );
 
   /**
-   * اندازه‌گیری عناصر و تولید مسیر SVG.
+   * اندازه‌گیری عناصر صفحه و ساخت مسیر SVG.
    */
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -319,7 +318,6 @@ export default function SiteVisualPath({
 
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-
     const desktop = window.matchMedia(DESKTOP_QUERY).matches;
 
     const centerOf = (el: Element | null): Point | null => {
@@ -346,10 +344,7 @@ export default function SiteVisualPath({
     );
 
     let hiddenRect: Rect | null = null;
-
-    const titleWord = container.querySelector(
-      SELECTORS.titleWord
-    );
+    const titleWord = container.querySelector(SELECTORS.titleWord);
 
     if (titleWord instanceof HTMLElement) {
       const box = layoutBox(titleWord, container);
@@ -378,9 +373,7 @@ export default function SiteVisualPath({
 
     const firstHighlight =
       highlightPoints[0] ??
-      centerOf(
-        container.querySelector(SELECTORS.highlightStart)
-      );
+      centerOf(container.querySelector(SELECTORS.highlightStart));
 
     const dots = Array.from(
       container.querySelectorAll<HTMLElement>(
@@ -396,11 +389,7 @@ export default function SiteVisualPath({
     const dotYs = dots.map((dot) => {
       const rect = dot.getBoundingClientRect();
 
-      return (
-        rect.top +
-        rect.height / 2 -
-        containerRect.top
-      );
+      return rect.top + rect.height / 2 - containerRect.top;
     });
 
     const meanderTops = Array.from(
@@ -441,19 +430,13 @@ export default function SiteVisualPath({
 
         if (i < lastIndex) {
           commands.push(
-            makeStep(
-              meanderBottoms[i],
-              meanderTops[i + 1]
-            )
+            makeStep(meanderBottoms[i], meanderTops[i + 1])
           );
         }
       }
 
       commands.push(
-        makeCurve(
-          meanderBottoms[lastIndex],
-          firstHighlight
-        )
+        makeCurve(meanderBottoms[lastIndex], firstHighlight)
       );
 
       for (let i = 1; i < highlightPoints.length; i++) {
@@ -506,10 +489,8 @@ export default function SiteVisualPath({
       hiddenRect,
     };
 
-    setPathData((previousPath) =>
-      samePath(previousPath, next)
-        ? previousPath
-        : next
+    setPathData((prev) =>
+      samePath(prev, next) ? prev : next
     );
 
     if (tableRef.current) {
@@ -526,23 +507,18 @@ export default function SiteVisualPath({
   }, [progress, mobileProgress, syncDots]);
 
   /**
-   * تشخیص اندازه صفحه و تعیین حالت دسکتاپ یا موبایل.
+   * تشخیص breakpoint؛ بدون دسترسی به window هنگام SSR.
    */
   useLayoutEffect(() => {
     const media = window.matchMedia(DESKTOP_QUERY);
 
     const updateBreakpoint = () => {
-      const nextIsDesktop = media.matches;
-
       setIsDesktop((previous) =>
-        previous === nextIsDesktop
-          ? previous
-          : nextIsDesktop
+        previous === media.matches ? previous : media.matches
       );
     };
 
     updateBreakpoint();
-
     media.addEventListener("change", updateBreakpoint);
 
     return () => {
@@ -551,7 +527,7 @@ export default function SiteVisualPath({
   }, []);
 
   /**
-   * اندازه‌گیری مجدد عناصر هنگام تغییر چیدمان.
+   * مشاهده تغییر ابعاد صفحه و عناصر.
    */
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -603,7 +579,7 @@ export default function SiteVisualPath({
   }, [measure]);
 
   /**
-   * تعیین هدف حرکت خط براساس اسکرول صفحه.
+   * محاسبه موقعیت هدف خط براساس اسکرول.
    */
   const update = useCallback(() => {
     const container = containerRef.current;
@@ -613,17 +589,13 @@ export default function SiteVisualPath({
 
     const vh = window.innerHeight;
     const rect = container.getBoundingClientRect();
-
     const scrollable = rect.height - vh;
 
     const p =
-      scrollable > 0
-        ? clamp(-rect.top / scrollable, 0, 1)
-        : 1;
+      scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
 
     const headY =
-      vh * (HEAD_START + HEAD_GAIN * p * p) -
-      rect.top;
+      vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
 
     target.set(lengthAt(table, headY));
   }, [target]);
@@ -631,10 +603,8 @@ export default function SiteVisualPath({
   useMotionValueEvent(scrollY, "change", update);
 
   /**
-   * به‌روزرسانی انیمیشن موبایل با مقدار Spring مخصوص موبایل.
-   *
-   * در هر فریم React دوباره render نمی‌شود؛
-   * فقط ویژگی‌های لازم SVG به‌روزرسانی می‌شوند.
+   * به‌روزرسانی مسیر موبایل با مقدار mobileProgress.
+   * انیمیشن با Spring موبایل حرکت می‌کند و React در هر فریم render نمی‌شود.
    */
   const updateMobileVisuals = useCallback(
     (value: number) => {
@@ -649,26 +619,16 @@ export default function SiteVisualPath({
       if (mobilePath) {
         mobilePath.style.strokeOpacity = "1";
 
-        if (reduceMotion) {
-          mobilePath.style.strokeDashoffset = "0";
-        } else {
-          const safeProgress = clamp(value, 0, 1);
-
-          mobilePath.style.strokeDashoffset = String(
-            table.total * (1 - safeProgress)
-          );
-        }
+        mobilePath.style.strokeDashoffset = reduceMotion
+          ? "0"
+          : String(table.total * (1 - clamp(value, 0, 1)));
       }
 
       if (!reduceMotion) {
         const head = headRef.current;
 
         if (head) {
-          const point = pointAtProgress(
-            table,
-            value,
-            true
-          );
+          const point = pointAtProgress(table, value, true);
 
           head.setAttribute(
             "transform",
@@ -676,9 +636,7 @@ export default function SiteVisualPath({
           );
 
           head.style.opacity =
-            value > 0.002 && value < 0.998
-              ? "1"
-              : "0";
+            value > 0.002 && value < 0.998 ? "1" : "0";
         }
       }
 
@@ -688,9 +646,7 @@ export default function SiteVisualPath({
   );
 
   /**
-   * نکته مهم:
-   * موبایل حالا از mobileProgress استفاده می‌کند،
-   * نه از target مستقیم.
+   * موبایل: Spring مستقل.
    */
   useMotionValueEvent(
     mobileProgress,
@@ -699,8 +655,8 @@ export default function SiteVisualPath({
   );
 
   /**
-   * پیش‌محاسبه مختصات مسیر.
-   * getPointAtLength در هر فریم اسکرول اجرا نمی‌شود.
+   * پیش‌محاسبه جدول مختصات مسیر.
+   * getPointAtLength فقط زمان ایجاد یا تغییر مسیر اجرا می‌شود.
    */
   useLayoutEffect(() => {
     const path = trackRef.current;
@@ -711,12 +667,7 @@ export default function SiteVisualPath({
     }
 
     const total = path.getTotalLength();
-
-    const steps = clamp(
-      Math.ceil(total / 6),
-      120,
-      1500
-    );
+    const steps = clamp(Math.ceil(total / 6), 120, 1500);
 
     const xs: number[] = [];
     const ys: number[] = [];
@@ -729,14 +680,14 @@ export default function SiteVisualPath({
 
       xs.push(point.x);
 
-      // مختصات یکنواخت برای محاسبات پیشرفت و دسکتاپ
+      // Y یکنواخت برای محاسبه پیشرفت و حفظ رفتار دسکتاپ
       ys.push(
         i === 0
           ? point.y
           : Math.max(point.y, ys[i - 1])
       );
 
-      // مختصات واقعی برای حرکت سر خط در موبایل
+      // Y واقعی برای حرکت سر خط روی پیچ‌های موبایل
       rawYs.push(point.y);
 
       ls.push(length);
@@ -751,7 +702,7 @@ export default function SiteVisualPath({
     };
 
     /**
-     * آماده‌سازی strokeDashoffset در مسیر موبایل.
+     * مقداردهی اولیه مسیر موبایل.
      */
     const mobilePath = mobilePathRef.current;
 
@@ -768,26 +719,20 @@ export default function SiteVisualPath({
     }
 
     /**
-     * محاسبه پیشرفت نقطه‌های تایم‌لاین.
+     * محاسبه پیشرفت نقاط تایم‌لاین.
      */
     const container = containerRef.current;
 
     if (container) {
-      const containerRect =
-        container.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
 
-      dotProgressRef.current = dotsRef.current.map(
-        (dot) => {
-          const rect = dot.getBoundingClientRect();
+      dotProgressRef.current = dotsRef.current.map((dot) => {
+        const rect = dot.getBoundingClientRect();
+        const y =
+          rect.top + rect.height / 2 - containerRect.top;
 
-          const y =
-            rect.top +
-            rect.height / 2 -
-            containerRect.top;
-
-          return lengthAt(tableRef.current!, y);
-        }
-      );
+        return lengthAt(tableRef.current!, y);
+      });
     }
 
     update();
@@ -809,8 +754,7 @@ export default function SiteVisualPath({
   ]);
 
   /**
-   * دسکتاپ:
-   * انیمیشن قبلی با progress و Spring اصلی حفظ می‌شود.
+   * دسکتاپ: همان انیمیشن Spring قبلی.
    */
   useMotionValueEvent(progress, "change", (value) => {
     if (!isDesktop) return;
@@ -827,9 +771,7 @@ export default function SiteVisualPath({
       );
 
       head.style.opacity =
-        value > 0.002 && value < 0.998
-          ? "1"
-          : "0";
+        value > 0.002 && value < 0.998 ? "1" : "0";
     }
 
     syncDots(value);
@@ -876,7 +818,7 @@ export default function SiteVisualPath({
           </defs>
 
           <g mask={`url(#${maskId})`}>
-            {/* مسیر کم‌رنگ ثابت */}
+            {/* مسیر زمینه */}
             <path
               ref={trackRef}
               d={pathData.d}
@@ -891,8 +833,9 @@ export default function SiteVisualPath({
             />
 
             {isDesktop ? (
-              /**
-               * دسکتاپ: motion.path و تنظیمات قبلی.
+              /*
+               * دسکتاپ:
+               * motion.path، pathLength و Spring قبلی حفظ شده‌اند.
                */
               <motion.path
                 d={pathData.d}
@@ -907,8 +850,9 @@ export default function SiteVisualPath({
                 }}
               />
             ) : (
-              /**
-               * موبایل و تبلت: کنترل رسم خط با strokeDashoffset.
+              /*
+               * موبایل:
+               * رسم تدریجی مسیر با strokeDashoffset و mobileProgress.
                */
               <path
                 ref={mobilePathRef}
