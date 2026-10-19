@@ -17,7 +17,6 @@ import {
   useScroll,
   useSpring,
 } from "motion/react";
-import gsap from "gsap";
 
 type Point = { x: number; y: number };
 type Rect = { x: number; y: number; width: number; height: number };
@@ -50,7 +49,6 @@ const SELECTORS = {
 const DESKTOP_QUERY = "(min-width: 1024px)";
 const CORNER_RADIUS = 24;
 
-// مقادیر اصلی حرکت حفظ شده‌اند.
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
@@ -66,7 +64,6 @@ const clamp = (v: number, min: number, max: number) =>
 
 function hexToRgba(hex: string, alpha: number) {
   const h = hex.replace("#", "");
-
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
@@ -100,16 +97,12 @@ function makeCurve(from: Point, to: Point) {
 }
 
 /**
- * مسیر موبایل:
- * پایین → پیچ نرم → افقی → پیچ نرم → پایین
- *
- * از منحنی‌های Bézier مکعبی برای گردتر شدن پیچ‌ها
- * استفاده می‌شود. ساختار کلی مسیر حفظ می‌شود.
+ * مسیر مارپیچی موبایل با پیچ‌های نرم‌تر.
+ * مسیر دسکتاپ از این تابع استفاده نمی‌کند.
  */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
   const drop = to.y - from.y;
-
   const dir = to.x >= from.x ? 1 : -1;
 
   const r = Math.min(
@@ -123,31 +116,20 @@ function makeStep(from: Point, to: Point) {
   }
 
   const midY = (from.y + to.y) / 2;
-
-  // ضریب استاندارد تقریب منحنی یک‌چهارم دایره
   const k = 0.5522847498;
 
   const firstCornerX = from.x + dir * r;
   const secondCornerX = to.x - dir * r;
 
   return [
-    // بخش عمودی تا شروع پیچ اول
     `L ${from.x} ${midY - r}`,
-
-    // پیچ اول: عمودی به افقی
     `C ${from.x} ${midY - r + k * r},
        ${firstCornerX - dir * k * r} ${midY},
        ${firstCornerX} ${midY}`,
-
-    // بخش افقی
     `L ${secondCornerX} ${midY}`,
-
-    // پیچ دوم: افقی به عمودی
     `C ${secondCornerX + dir * k * r} ${midY},
        ${to.x} ${midY + r - k * r},
        ${to.x} ${midY + r}`,
-
-    // ادامه تا انتهای ریل بعدی
     `L ${to.x} ${to.y}`,
   ].join(" ");
 }
@@ -187,11 +169,8 @@ function lengthAt(table: Table, y: number) {
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
 
-    if (ys[mid] <= y) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
+    if (ys[mid] <= y) lo = mid;
+    else hi = mid;
   }
 
   const span = ys[hi] - ys[lo];
@@ -208,29 +187,21 @@ export default function SiteVisualPath({
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGGElement>(null);
-
   const tableRef = useRef<Table | null>(null);
 
-  // دایره‌ها cache می‌شوند تا در هر فریم DOM جست‌وجو نشود.
   const dotsRef = useRef<HTMLElement[]>([]);
-
-  const dotAnimationsRef = useRef(
-    new Map<HTMLElement, gsap.core.Tween>()
-  );
-
   const dotProgressRef = useRef<number[]>([]);
+  const previousDotStatesRef = useRef<boolean[]>([]);
 
   const reduceMotion = useReducedMotion();
-
   const maskId = `route-mask-${useId().replace(/:/g, "")}`;
 
   const [pathData, setPathData] = useState<PathData>(EMPTY);
 
   const { scrollY } = useScroll();
-
   const target = useMotionValue(0);
 
-  // تنظیمات اصلی اسپرینگ بدون تغییر
+  // تنظیمات اصلی حرکت حفظ شده‌اند.
   const progress = useSpring(target, {
     stiffness: 130,
     damping: 30,
@@ -239,55 +210,39 @@ export default function SiteVisualPath({
   });
 
   /**
-   * به‌روزرسانی وضعیت دایره‌ها با استفاده از عناصر cache شده.
-   * هیچ querySelectorAll در حلقه‌ی انیمیشن اجرا نمی‌شود.
+   * بدون GSAP و بدون box-shadow متحرک:
+   * وضعیت هر دایره فقط زمانی عوض می‌شود که خط از آن عبور کند.
    */
   const syncDots = useCallback(
     (value: number) => {
       const dots = dotsRef.current;
+      const starts = dotProgressRef.current;
+      const previous = previousDotStatesRef.current;
 
-      for (let index = 0; index < dots.length; index++) {
-        const dot = dots[index];
-        const animation = dotAnimationsRef.current.get(dot);
-        const start = dotProgressRef.current[index];
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        const start = starts[i];
 
-        if (reduceMotion) {
-          if (animation) animation.progress(1);
+        if (start === undefined) continue;
 
-          dot.dataset.linePassed = "true";
-          continue;
-        }
+        const passed = reduceMotion || value >= start;
 
-        if (!animation || start === undefined) continue;
+        // از نوشتن DOM در هر فریم جلوگیری می‌کنیم.
+        if (previous[i] === passed) continue;
 
-        const localProgress =
-          start >= 1
-            ? 0
-            : clamp(
-                (value - start) / Math.max(0.0001, 1 - start),
-                0,
-                1
-              );
-
-        animation.progress(localProgress);
-
-        dot.dataset.linePassed = String(localProgress >= 1);
+        previous[i] = passed;
+        dot.dataset.linePassed = String(passed);
       }
     },
     [reduceMotion]
   );
 
-  /**
-   * اندازه‌گیری هندسه‌ی مسیر.
-   * این تابع هنگام تغییر layout اجرا می‌شود، نه در هر فریم اسکرول.
-   */
   const measure = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-
     const isDesktop = window.matchMedia(DESKTOP_QUERY).matches;
 
     const centerOf = (el: Element | null): Point | null => {
@@ -314,10 +269,7 @@ export default function SiteVisualPath({
     );
 
     let hiddenRect: Rect | null = null;
-
-    const titleWord = container.querySelector(
-      SELECTORS.titleWord
-    );
+    const titleWord = container.querySelector(SELECTORS.titleWord);
 
     if (titleWord instanceof HTMLElement) {
       const box = layoutBox(titleWord, container);
@@ -346,9 +298,7 @@ export default function SiteVisualPath({
 
     const firstHighlight =
       highlightPoints[0] ??
-      centerOf(
-        container.querySelector(SELECTORS.highlightStart)
-      );
+      centerOf(container.querySelector(SELECTORS.highlightStart));
 
     const dots = Array.from(
       container.querySelectorAll<HTMLElement>(
@@ -356,22 +306,17 @@ export default function SiteVisualPath({
       )
     );
 
-    // cache کردن دایره‌ها برای استفاده در فریم‌های بعدی
     dotsRef.current = dots;
+    previousDotStatesRef.current = dots.map(() => false);
 
     const containerRect = container.getBoundingClientRect();
 
     const dotYs = dots.map((dot) => {
       const rect = dot.getBoundingClientRect();
 
-      return (
-        rect.top +
-        rect.height / 2 -
-        containerRect.top
-      );
+      return rect.top + rect.height / 2 - containerRect.top;
     });
 
-    // انکرهای مسیر موبایل
     const meanderTops = Array.from(
       container.querySelectorAll(SELECTORS.meanderTop)
     )
@@ -393,7 +338,6 @@ export default function SiteVisualPath({
       meanderTops.length > 0 &&
       meanderTops.length === meanderBottoms.length
     ) {
-      // موبایل و تبلت: مسیر مارپیچی با پیچ‌های نرم
       const lastIndex = meanderTops.length - 1;
 
       const commands = [
@@ -414,10 +358,7 @@ export default function SiteVisualPath({
       }
 
       commands.push(
-        makeCurve(
-          meanderBottoms[lastIndex],
-          firstHighlight
-        )
+        makeCurve(meanderBottoms[lastIndex], firstHighlight)
       );
 
       for (let i = 1; i < highlightPoints.length; i++) {
@@ -436,7 +377,7 @@ export default function SiteVisualPath({
       timelineEnd &&
       firstHighlight
     ) {
-      // دسکتاپ: مسیر اصلی بدون تغییر
+      // شاخه‌ی دسکتاپ حفظ شده است.
       const verticalEnd = {
         x: timelineStart.x,
         y: timelineEnd.y,
@@ -472,51 +413,6 @@ export default function SiteVisualPath({
       samePath(prev, next) ? prev : next
     );
 
-    // بازسازی tweenها فقط هنگام اندازه‌گیری layout
-    dotAnimationsRef.current.forEach((animation) => {
-      animation.kill();
-    });
-
-    dotAnimationsRef.current.clear();
-
-    const css = getComputedStyle(document.documentElement);
-
-    const accent =
-      css.getPropertyValue("--brand-accent").trim() ||
-      "#C5AA76";
-
-    const onAccent =
-      css.getPropertyValue("--brand-on-accent").trim() ||
-      "#061F38";
-
-    dots.forEach((dot) => {
-      const computed = getComputedStyle(dot);
-
-      const animation = gsap.fromTo(
-        dot,
-        {
-          backgroundColor: computed.backgroundColor,
-          borderColor: computed.borderColor,
-          color: computed.color,
-          boxShadow: "0 0 0 0 rgba(197, 170, 118, 0)",
-        },
-        {
-          backgroundColor: accent,
-          borderColor: accent,
-          color: onAccent,
-          boxShadow: `0 0 0 8px ${hexToRgba(
-            accent,
-            0.15
-          )}, 0 0 40px ${hexToRgba(accent, 0.35)}`,
-          ease: "none",
-          paused: true,
-        }
-      );
-
-      dotAnimationsRef.current.set(dot, animation);
-    });
-
-    // محاسبه‌ی پیشرفت دایره‌ها براساس موقعیت فعلی‌شان
     if (tableRef.current) {
       dotProgressRef.current = dotYs.map((y) =>
         lengthAt(tableRef.current!, y)
@@ -528,9 +424,6 @@ export default function SiteVisualPath({
     }
   }, [progress, syncDots]);
 
-  /**
-   * اندازه‌گیری فقط هنگام تغییر اندازه یا layout.
-   */
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -563,30 +456,21 @@ export default function SiteVisualPath({
 
     window.addEventListener("resize", schedule);
     window.addEventListener("load", schedule);
-
     document.fonts?.ready.then(schedule);
 
     return () => {
       cancelAnimationFrame(frame);
-
       observer.disconnect();
 
       window.removeEventListener("resize", schedule);
       window.removeEventListener("load", schedule);
 
-      dotAnimationsRef.current.forEach((animation) => {
-        animation.kill();
-      });
-
-      dotAnimationsRef.current.clear();
       dotsRef.current = [];
+      dotProgressRef.current = [];
+      previousDotStatesRef.current = [];
     };
   }, [measure]);
 
-  /**
-   * تبدیل موقعیت اسکرول به پیشرفت مسیر.
-   * مقادیر HEAD_START و HEAD_GAIN حفظ شده‌اند.
-   */
   const update = useCallback(() => {
     const container = containerRef.current;
     const table = tableRef.current;
@@ -598,22 +482,16 @@ export default function SiteVisualPath({
     const scrollable = rect.height - vh;
 
     const p =
-      scrollable > 0
-        ? clamp(-rect.top / scrollable, 0, 1)
-        : 1;
+      scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
 
     const headY =
-      vh * (HEAD_START + HEAD_GAIN * p * p) -
-      rect.top;
+      vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
 
     target.set(lengthAt(table, headY));
   }, [target]);
 
   useMotionValueEvent(scrollY, "change", update);
 
-  /**
-   * ساخت جدول طول مسیر برای پیدا کردن سریع موقعیت خط.
-   */
   useLayoutEffect(() => {
     const path = trackRef.current;
 
@@ -623,12 +501,7 @@ export default function SiteVisualPath({
     }
 
     const total = path.getTotalLength();
-
-    const steps = clamp(
-      Math.ceil(total / 6),
-      120,
-      1500
-    );
+    const steps = clamp(Math.ceil(total / 6), 120, 1500);
 
     const ys: number[] = [];
     const ls: number[] = [];
@@ -637,7 +510,6 @@ export default function SiteVisualPath({
       const length = (total * i) / steps;
       const point = path.getPointAtLength(length);
 
-      // حفظ ترتیب عمودی برای جست‌وجوی دودویی
       ys.push(
         i === 0
           ? point.y
@@ -647,37 +519,18 @@ export default function SiteVisualPath({
       ls.push(length);
     }
 
-    tableRef.current = {
-      ys,
-      ls,
-      total,
-    };
+    tableRef.current = { ys, ls, total };
 
     const container = containerRef.current;
 
     if (container) {
-      const containerRect =
-        container.getBoundingClientRect();
-
-      // از cache استفاده می‌کنیم؛ در صورت خالی بودن، یک‌بار پیدا می‌کنیم.
-      const dots =
-        dotsRef.current.length > 0
-          ? dotsRef.current
-          : Array.from(
-              container.querySelectorAll<HTMLElement>(
-                SELECTORS.timelineDots
-              )
-            );
-
-      dotsRef.current = dots;
+      const containerRect = container.getBoundingClientRect();
+      const dots = dotsRef.current;
 
       dotProgressRef.current = dots.map((dot) => {
         const rect = dot.getBoundingClientRect();
-
         const y =
-          rect.top +
-          rect.height / 2 -
-          containerRect.top;
+          rect.top + rect.height / 2 - containerRect.top;
 
         return lengthAt(tableRef.current!, y);
       });
@@ -687,9 +540,6 @@ export default function SiteVisualPath({
     syncDots(progress.get());
   }, [pathData.d, progress, syncDots, update]);
 
-  /**
-   * به‌روزرسانی نقطه‌ی نورانی روی خط.
-   */
   useMotionValueEvent(progress, "change", (value) => {
     const path = trackRef.current;
     const head = headRef.current;
@@ -753,7 +603,6 @@ export default function SiteVisualPath({
           </defs>
 
           <g mask={`url(#${maskId})`}>
-            {/* مسیر ثابت پس‌زمینه */}
             <path
               ref={trackRef}
               d={pathData.d}
@@ -767,7 +616,6 @@ export default function SiteVisualPath({
               }}
             />
 
-            {/* خط اصلی متحرک */}
             <motion.path
               d={pathData.d}
               fill="none"
@@ -781,12 +629,8 @@ export default function SiteVisualPath({
               }}
             />
 
-            {/* نقطه‌ی نورانی متحرک */}
             {!reduceMotion && (
-              <g
-                ref={headRef}
-                style={{ opacity: 0 }}
-              >
+              <g ref={headRef} style={{ opacity: 0 }}>
                 <circle
                   r="9"
                   style={{
@@ -797,9 +641,7 @@ export default function SiteVisualPath({
 
                 <circle
                   r="4"
-                  style={{
-                    fill: "var(--brand-accent)",
-                  }}
+                  style={{ fill: "var(--brand-accent)" }}
                 />
               </g>
             )}
