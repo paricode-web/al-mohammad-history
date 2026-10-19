@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -9,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  motion,
   useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
@@ -30,6 +30,7 @@ type PathData = {
 type Table = {
   xs: number[];
   ys: number[];
+  lookupYs: number[];
   ls: number[];
   total: number;
 };
@@ -87,10 +88,6 @@ function makeCurve(from: Point, to: Point) {
   return `C ${from.x} ${middleY}, ${to.x} ${middleY}, ${to.x} ${to.y}`;
 }
 
-/**
- * مسیر موبایل با پیچ‌های نرم.
- * شکل مسیر دسکتاپ تغییری نمی‌کند.
- */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
   const drop = to.y - from.y;
@@ -147,16 +144,16 @@ function samePath(a: PathData, b: PathData) {
 }
 
 /**
- * تبدیل مختصات عمودی به پیشرفت مسیر.
- * جست‌وجوی دودویی انجام می‌شود؛ نیازی به پیمایش کل جدول نیست.
+ * از جدول عمودی یکنواخت برای تبدیل موقعیت اسکرول به پیشرفت مسیر
+ * استفاده می‌کنیم. جست‌وجو در زمان لگاریتمی انجام می‌شود.
  */
 function lengthAt(table: Table, y: number) {
-  const { ys, ls, total } = table;
-  const n = ys.length;
+  const { lookupYs, ls, total } = table;
+  const n = lookupYs.length;
 
   if (n < 2 || total <= 0) return 0;
-  if (y <= ys[0]) return 0;
-  if (y >= ys[n - 1]) return 1;
+  if (y <= lookupYs[0]) return 0;
+  if (y >= lookupYs[n - 1]) return 1;
 
   let lo = 0;
   let hi = n - 1;
@@ -164,19 +161,19 @@ function lengthAt(table: Table, y: number) {
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
 
-    if (ys[mid] <= y) lo = mid;
+    if (lookupYs[mid] <= y) lo = mid;
     else hi = mid;
   }
 
-  const span = ys[hi] - ys[lo];
-  const k = span > 0 ? (y - ys[lo]) / span : 0;
+  const span = lookupYs[hi] - lookupYs[lo];
+  const k = span > 0 ? (y - lookupYs[lo]) / span : 0;
 
   return (ls[lo] + (ls[hi] - ls[lo]) * k) / total;
 }
 
 /**
- * موقعیت سر مسیر را از جدول از پیش محاسبه‌شده به دست می‌آورد.
- * برخلاف getPointAtLength، این تابع در هر فریم به SVG مراجعه نمی‌کند.
+ * مختصات واقعی مسیر را از جدول می‌خواند؛
+ * lookupYs فقط برای جست‌وجوی عمودی است و مسیر را تغییر نمی‌دهد.
  */
 function pointAtProgress(table: Table, progress: number): Point {
   const { xs, ys, ls, total } = table;
@@ -222,6 +219,7 @@ export default function SiteVisualPath({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<SVGPathElement>(null);
+  const animatedPathRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGGElement>(null);
   const tableRef = useRef<Table | null>(null);
 
@@ -233,11 +231,12 @@ export default function SiteVisualPath({
   const maskId = `route-mask-${useId().replace(/:/g, "")}`;
 
   const [pathData, setPathData] = useState<PathData>(EMPTY);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const { scrollY } = useScroll();
   const target = useMotionValue(0);
 
-  // تنظیمات اصلی حفظ شده‌اند.
+  // اسپرینگ فقط برای دسکتاپ استفاده می‌شود.
   const progress = useSpring(target, {
     stiffness: 130,
     damping: 30,
@@ -245,9 +244,6 @@ export default function SiteVisualPath({
     restDelta: 0.0005,
   });
 
-  /**
-   * فقط زمانی DOM را تغییر می‌دهد که وضعیت یک نقطه عوض شود.
-   */
   const syncDots = useCallback(
     (value: number) => {
       const dots = dotsRef.current;
@@ -270,13 +266,49 @@ export default function SiteVisualPath({
     [reduceMotion]
   );
 
+  /**
+   * خط با stroke-dashoffset رسم می‌شود.
+   * این تابع مستقیماً SVG را به‌روز می‌کند و React را درگیر
+   * رندر مجدد در هر فریم نمی‌کند.
+   */
+  const syncVisuals = useCallback(
+    (value: number) => {
+      const table = tableRef.current;
+      const path = animatedPathRef.current;
+      const head = headRef.current;
+
+      if (!table || !path) return;
+
+      const normalized = clamp(value, 0, 1);
+
+      path.style.strokeDashoffset = String(
+        reduceMotion ? 0 : table.total * (1 - normalized)
+      );
+
+      if (head && !reduceMotion) {
+        const point = pointAtProgress(table, normalized);
+
+        head.setAttribute(
+          "transform",
+          `translate(${point.x} ${point.y})`
+        );
+
+        head.style.opacity =
+          normalized > 0.002 && normalized < 0.998 ? "1" : "0";
+      }
+
+      syncDots(normalized);
+    },
+    [reduceMotion, syncDots]
+  );
+
   const measure = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-    const isDesktop = window.matchMedia(DESKTOP_QUERY).matches;
+    const desktop = window.matchMedia(DESKTOP_QUERY).matches;
 
     const centerOf = (el: Element | null): Point | null => {
       if (!(el instanceof HTMLElement)) return null;
@@ -365,7 +397,7 @@ export default function SiteVisualPath({
     let d = "";
 
     if (
-      !isDesktop &&
+      !desktop &&
       start &&
       firstHighlight &&
       meanderTops.length > 0 &&
@@ -450,11 +482,27 @@ export default function SiteVisualPath({
         lengthAt(tableRef.current!, y)
       );
 
-      syncDots(progress.get());
+      syncDots(target.get());
     } else {
       dotProgressRef.current = [];
     }
-  }, [progress, syncDots]);
+  }, [syncDots, target]);
+
+  // تشخیص اندازه صفحه؛ دسکتاپ و موبایل رفتار انیمیشن متفاوت دارند.
+  useLayoutEffect(() => {
+    const media = window.matchMedia(DESKTOP_QUERY);
+
+    const updateBreakpoint = () => {
+      setIsDesktop(media.matches);
+    };
+
+    updateBreakpoint();
+    media.addEventListener("change", updateBreakpoint);
+
+    return () => {
+      media.removeEventListener("change", updateBreakpoint);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -525,13 +573,15 @@ export default function SiteVisualPath({
   useMotionValueEvent(scrollY, "change", update);
 
   /**
-   * این محاسبات فقط هنگام ساخته‌شدن یا تغییر مسیر انجام می‌شوند.
-   * مختصات مسیر برای استفاده در فریم‌های بعدی ذخیره می‌شوند.
+   * نمونه‌برداری از مسیر فقط هنگام ساخته‌شدن یا تغییر آن.
+   * مختصات خام برای حرکت سر و مختصات یکنواخت برای جست‌وجو
+   * در محور Y به‌صورت جداگانه ذخیره می‌شوند.
    */
   useLayoutEffect(() => {
     const path = trackRef.current;
+    const animatedPath = animatedPathRef.current;
 
-    if (!path || !pathData.d) {
+    if (!path || !animatedPath || !pathData.d) {
       tableRef.current = null;
       return;
     }
@@ -541,6 +591,7 @@ export default function SiteVisualPath({
 
     const xs: number[] = [];
     const ys: number[] = [];
+    const lookupYs: number[] = [];
     const ls: number[] = [];
 
     for (let i = 0; i <= steps; i++) {
@@ -548,18 +599,28 @@ export default function SiteVisualPath({
       const point = path.getPointAtLength(length);
 
       xs.push(point.x);
+      ys.push(point.y);
 
-      // حفظ رفتار قبلی برای محاسبه پیشرفت بر اساس محور Y
-      ys.push(
+      lookupYs.push(
         i === 0
           ? point.y
-          : Math.max(point.y, ys[i - 1])
+          : Math.max(point.y, lookupYs[i - 1])
       );
 
       ls.push(length);
     }
 
-    tableRef.current = { xs, ys, ls, total };
+    tableRef.current = {
+      xs,
+      ys,
+      lookupYs,
+      ls,
+      total,
+    };
+
+    // تنظیم طول خط برای رسم مستقیم با stroke-dashoffset.
+    animatedPath.setAttribute("stroke-dasharray", String(total));
+    animatedPath.style.strokeDashoffset = String(total);
 
     const container = containerRef.current;
 
@@ -576,31 +637,29 @@ export default function SiteVisualPath({
     }
 
     update();
-    syncDots(progress.get());
-  }, [pathData.d, progress, syncDots, update]);
 
-  /**
-   * مهم‌ترین بهینه‌سازی:
-   * دیگر در هر فریم SVG getPointAtLength فراخوانی نمی‌شود.
-   * موقعیت سر مسیر از جدول مختصات محاسبه می‌شود.
-   */
-  useMotionValueEvent(progress, "change", (value) => {
-    const head = headRef.current;
-    const table = tableRef.current;
+    syncVisuals(isDesktop ? progress.get() : target.get());
+  }, [
+    pathData.d,
+    isDesktop,
+    progress,
+    target,
+    update,
+    syncVisuals,
+  ]);
 
-    if (head && table) {
-      const point = pointAtProgress(table, value);
-
-      head.setAttribute(
-        "transform",
-        `translate(${point.x} ${point.y})`
-      );
-
-      head.style.opacity =
-        value > 0.002 && value < 0.998 ? "1" : "0";
+  // موبایل: بدون اسپرینگ، خط مستقیماً با مقدار اسکرول به‌روز می‌شود.
+  useMotionValueEvent(target, "change", (value) => {
+    if (!isDesktop) {
+      syncVisuals(value);
     }
+  });
 
-    syncDots(value);
+  // دسکتاپ: رفتار نرم قبلی حفظ می‌شود.
+  useMotionValueEvent(progress, "change", (value) => {
+    if (isDesktop) {
+      syncVisuals(value);
+    }
   });
 
   return (
@@ -657,7 +716,8 @@ export default function SiteVisualPath({
               }}
             />
 
-            <motion.path
+            <path
+              ref={animatedPathRef}
               d={pathData.d}
               fill="none"
               strokeWidth="2"
@@ -665,8 +725,9 @@ export default function SiteVisualPath({
               strokeLinejoin="round"
               className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
               style={{
-                pathLength: reduceMotion ? 1 : progress,
                 stroke: "var(--brand-accent)",
+                strokeDasharray: 1,
+                strokeDashoffset: 1,
               }}
             />
 
