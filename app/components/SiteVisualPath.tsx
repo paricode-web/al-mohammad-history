@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -16,6 +17,7 @@ import {
   useScroll,
   useSpring,
 } from "motion/react";
+import gsap from "gsap";
 
 type Point = { x: number; y: number };
 type Rect = { x: number; y: number; width: number; height: number };
@@ -27,8 +29,11 @@ type PathData = {
   hiddenRect: Rect | null;
 };
 
-/** جدول نمونه‌برداری مسیر: برای هر طول، مقدار y متناظر */
-type Table = { ys: number[]; ls: number[]; total: number };
+type Table = {
+  ys: number[];
+  ls: number[];
+  total: number;
+};
 
 const SELECTORS = {
   start: '[data-line-anchor="visual-start"]',
@@ -36,23 +41,32 @@ const SELECTORS = {
   timelineEnd: '[data-line-anchor="timeline-connection"]',
   highlightStart: '[data-line-anchor="highlights-connection"]',
   highlightPoints: "[data-line-path-point]",
+  timelineDots: "[data-timeline-dot]",
   titleWord: "[data-line-title-word]",
 };
 
-/**
- * سرِ خط کجای صفحه‌ی نمایش باشد؟
- * ابتدا ۵۵٪ ارتفاع صفحه؛ هر چه به انتهای سایت نزدیک‌تر شویم تا ۱۰۰٪ پایین می‌رود
- * تا در آخر صفحه خط کامل کشیده شده باشد.
- */
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
-const EMPTY: PathData = { d: "", width: 0, height: 0, hiddenRect: null };
+const EMPTY: PathData = {
+  d: "",
+  width: 0,
+  height: 0,
+  hiddenRect: null,
+};
 
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
 
-/** موقعیت المان نسبت به container، بدون اثر transform (انیمیشن کارت‌ها روی مسیر اثر نمی‌گذارد) */
+function hexToRgba(hex: string, alpha: number) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function layoutBox(el: HTMLElement, root: HTMLElement) {
   let x = 0;
   let y = 0;
@@ -64,7 +78,12 @@ function layoutBox(el: HTMLElement, root: HTMLElement) {
     node = node.offsetParent as HTMLElement | null;
   }
 
-  return { x, y, width: el.offsetWidth, height: el.offsetHeight };
+  return {
+    x,
+    y,
+    width: el.offsetWidth,
+    height: el.offsetHeight,
+  };
 }
 
 function makeCurve(from: Point, to: Point) {
@@ -87,11 +106,13 @@ function samePath(a: PathData, b: PathData) {
       ra.height === rb.height);
 
   return (
-    a.d === b.d && a.width === b.width && a.height === b.height && sameRect
+    a.d === b.d &&
+    a.width === b.width &&
+    a.height === b.height &&
+    sameRect
   );
 }
 
-/** y (نسبت به container) را به نسبت طول مسیر (۰ تا ۱) تبدیل می‌کند */
 function lengthAt(table: Table, y: number) {
   const { ys, ls, total } = table;
   const n = ys.length;
@@ -105,6 +126,7 @@ function lengthAt(table: Table, y: number) {
 
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
+
     if (ys[mid] <= y) lo = mid;
     else hi = mid;
   }
@@ -115,12 +137,21 @@ function lengthAt(table: Table, y: number) {
   return (ls[lo] + (ls[hi] - ls[lo]) * k) / total;
 }
 
-export default function SiteVisualPath({ children }: { children: ReactNode }) {
+export default function SiteVisualPath({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGGElement>(null);
   const tableRef = useRef<Table | null>(null);
 
+  const dotAnimationsRef = useRef(
+    new Map<HTMLElement, gsap.core.Tween>()
+  );
+
+  const dotProgressRef = useRef<number[]>([]);
   const reduceMotion = useReducedMotion();
   const maskId = `route-mask-${useId().replace(/:/g, "")}`;
 
@@ -128,8 +159,9 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
 
   const { scrollY } = useScroll();
 
-  // مقدار هدف از روی اسکرول؛ اسپرینگ حرکت را نرم می‌کند ولی همیشه با اسکرول هم‌گام می‌ماند
   const target = useMotionValue(0);
+
+  // تنظیمات اسپرینگ اصلی حفظ شده‌اند.
   const progress = useSpring(target, {
     stiffness: 130,
     damping: 30,
@@ -137,7 +169,42 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
     restDelta: 0.0005,
   });
 
-  /* ---------- اندازه‌گیری مسیر (فقط با تغییر layout، نه با هر اسکرول) ---------- */
+  const syncDots = useCallback(
+    (value: number) => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const dots = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          SELECTORS.timelineDots
+        )
+      );
+
+      dots.forEach((dot, index) => {
+        const animation = dotAnimationsRef.current.get(dot);
+        const start = dotProgressRef.current[index];
+
+        if (reduceMotion) {
+          if (animation) animation.progress(1);
+          dot.dataset.linePassed = "true";
+          return;
+        }
+
+        if (!animation || start === undefined) return;
+
+        // دایره دقیقاً براساس پیشرفت همان خط پر می‌شود.
+        const localProgress =
+          start >= 1
+            ? 0
+            : clamp((value - start) / Math.max(0.0001, 1 - start), 0, 1);
+
+        animation.progress(localProgress);
+        dot.dataset.linePassed = String(localProgress >= 1);
+      });
+    },
+    [reduceMotion]
+  );
+
   const measure = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -147,20 +214,25 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
 
     const centerOf = (el: Element | null): Point | null => {
       if (!(el instanceof HTMLElement)) return null;
+
       const box = layoutBox(el, container);
 
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      return {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+      };
     };
 
     const start = centerOf(container.querySelector(SELECTORS.start));
+
     const timelineStart = centerOf(
       container.querySelector(SELECTORS.timelineStart)
     );
+
     const timelineEnd = centerOf(
       container.querySelector(SELECTORS.timelineEnd)
     );
 
-    // ناحیه‌ای که خط پشت کلمه‌ی عنوان مخفی می‌شود
     let hiddenRect: Rect | null = null;
     const titleWord = container.querySelector(SELECTORS.titleWord);
 
@@ -177,11 +249,14 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
     }
 
     const highlightPoints = Array.from(
-      container.querySelectorAll<HTMLElement>(SELECTORS.highlightPoints)
+      container.querySelectorAll<HTMLElement>(
+        SELECTORS.highlightPoints
+      )
     )
       .sort(
         (a, b) =>
-          Number(a.dataset.linePathPoint) - Number(b.dataset.linePathPoint)
+          Number(a.dataset.linePathPoint) -
+          Number(b.dataset.linePathPoint)
       )
       .map((el) => centerOf(el))
       .filter((p): p is Point => p !== null);
@@ -190,10 +265,27 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
       highlightPoints[0] ??
       centerOf(container.querySelector(SELECTORS.highlightStart));
 
+    const dots = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        SELECTORS.timelineDots
+      )
+    );
+
+    const containerRect = container.getBoundingClientRect();
+
+    const dotYs = dots.map((dot) => {
+      const rect = dot.getBoundingClientRect();
+
+      return rect.top + rect.height / 2 - containerRect.top;
+    });
+
     let d = "";
 
     if (start && timelineStart && timelineEnd && firstHighlight) {
-      const verticalEnd = { x: timelineStart.x, y: timelineEnd.y };
+      const verticalEnd = {
+        x: timelineStart.x,
+        y: timelineEnd.y,
+      };
 
       const commands = [
         `M ${start.x} ${start.y}`,
@@ -203,16 +295,65 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
       ];
 
       for (let i = 1; i < highlightPoints.length; i++) {
-        commands.push(makeCurve(highlightPoints[i - 1], highlightPoints[i]));
+        commands.push(
+          makeCurve(highlightPoints[i - 1], highlightPoints[i])
+        );
       }
 
       d = commands.join(" ");
     }
 
-    const next: PathData = { d, width, height, hiddenRect };
+    const next: PathData = {
+      d,
+      width,
+      height,
+      hiddenRect,
+    };
 
     setPathData((prev) => (samePath(prev, next) ? prev : next));
-  }, []);
+
+    // بازسازی انیمیشن‌های دایره‌ها پس از اندازه‌گیری layout
+    dotAnimationsRef.current.forEach((animation) => animation.kill());
+    dotAnimationsRef.current.clear();
+
+    const css = getComputedStyle(document.documentElement);
+    const accent =
+      css.getPropertyValue("--brand-accent").trim() || "#C5AA76";
+    const onAccent =
+      css.getPropertyValue("--brand-on-accent").trim() || "#061F38";
+
+    dots.forEach((dot) => {
+      const animation = gsap.fromTo(
+        dot,
+        {
+          backgroundColor: getComputedStyle(dot).backgroundColor,
+          borderColor: getComputedStyle(dot).borderColor,
+          color: getComputedStyle(dot).color,
+          boxShadow: "0 0 0 0 rgba(197, 170, 118, 0)",
+        },
+        {
+          backgroundColor: accent,
+          borderColor: accent,
+          color: onAccent,
+          boxShadow: `0 0 0 8px ${hexToRgba(accent, 0.15)}, 0 0 40px ${hexToRgba(accent, 0.35)}`,
+          ease: "none",
+          paused: true,
+        }
+      );
+
+      dotAnimationsRef.current.set(dot, animation);
+    });
+
+    // مقدار هر دایره روی مسیر، با توجه به موقعیت عمودی آن
+    if (tableRef.current) {
+      dotProgressRef.current = dotYs.map((y) =>
+        lengthAt(tableRef.current!, y)
+      );
+      syncDots(progress.get());
+    } else {
+      dotProgressRef.current = [];
+    }
+  }, [progress, syncDots]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -230,8 +371,11 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
     const observer = new ResizeObserver(schedule);
 
     observer.observe(container);
+
     container
-      .querySelectorAll("article, li, h1, [data-line-anchor]")
+      .querySelectorAll(
+        "article, li, h1, [data-line-anchor], [data-timeline-dot]"
+      )
       .forEach((el) => observer.observe(el));
 
     window.addEventListener("resize", schedule);
@@ -243,23 +387,25 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
       observer.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("load", schedule);
+
+      dotAnimationsRef.current.forEach((animation) => animation.kill());
+      dotAnimationsRef.current.clear();
     };
   }, [measure]);
 
-  /* ---------- هم‌گام‌سازی طول خط با اسکرول ---------- */
   const update = useCallback(() => {
     const container = containerRef.current;
     const table = tableRef.current;
+
     if (!container || !table) return;
 
     const vh = window.innerHeight;
     const rect = container.getBoundingClientRect();
     const scrollable = rect.height - vh;
 
-    // پیشروی در کل سایت: ۰ در ابتدا، ۱ وقتی انتهای سایت به پایین صفحه رسید
-    const p = scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
+    const p =
+      scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
 
-    // y سرِ خط نسبت به container
     const headY = vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
 
     target.set(lengthAt(table, headY));
@@ -267,7 +413,6 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
 
   useMotionValueEvent(scrollY, "change", update);
 
-  // ساخت جدول (y ← طول) هر بار که مسیر عوض شد
   useLayoutEffect(() => {
     const path = trackRef.current;
 
@@ -278,6 +423,7 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
 
     const total = path.getTotalLength();
     const steps = clamp(Math.ceil(total / 6), 120, 1500);
+
     const ys: number[] = [];
     const ls: number[] = [];
 
@@ -290,21 +436,50 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
     }
 
     tableRef.current = { ys, ls, total };
-    update();
-  }, [pathData.d, update]);
 
-  // نقطه‌ی درخشان روی سرِ خط
+    const container = containerRef.current;
+
+    if (container) {
+      const containerRect = container.getBoundingClientRect();
+
+      const dots = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          SELECTORS.timelineDots
+        )
+      );
+
+      dotProgressRef.current = dots.map((dot) => {
+        const rect = dot.getBoundingClientRect();
+        const y = rect.top + rect.height / 2 - containerRect.top;
+
+        return lengthAt(tableRef.current!, y);
+      });
+    }
+
+    update();
+    syncDots(progress.get());
+  }, [pathData.d, progress, syncDots, update]);
+
   useMotionValueEvent(progress, "change", (value) => {
     const path = trackRef.current;
     const head = headRef.current;
     const table = tableRef.current;
 
-    if (!path || !head || !table) return;
+    if (path && head && table) {
+      const point = path.getPointAtLength(
+        clamp(value, 0, 1) * table.total
+      );
 
-    const point = path.getPointAtLength(clamp(value, 0, 1) * table.total);
+      head.setAttribute(
+        "transform",
+        `translate(${point.x} ${point.y})`
+      );
 
-    head.setAttribute("transform", `translate(${point.x} ${point.y})`);
-    head.style.opacity = value > 0.002 && value < 0.998 ? "1" : "0";
+      head.style.opacity =
+        value > 0.002 && value < 0.998 ? "1" : "0";
+    }
+
+    syncDots(value);
   });
 
   return (
@@ -314,7 +489,6 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
       {pathData.d && (
         <svg
           aria-hidden="true"
-          // روی همه‌ی اندازه‌ها فعال است. z-5: بالاتر از پس‌زمینه‌ی سکشن‌ها، پایین‌تر از کارت‌ها و دایره‌های تایم‌لاین (z-10)
           className="pointer-events-none absolute inset-0 z-[5] h-full w-full overflow-visible"
           viewBox={`0 0 ${pathData.width} ${pathData.height}`}
           preserveAspectRatio="none"
@@ -349,7 +523,6 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
           </defs>
 
           <g mask={`url(#${maskId})`}>
-            {/* مسیر کم‌رنگ پایه */}
             <path
               ref={trackRef}
               d={pathData.d}
@@ -357,17 +530,18 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ stroke: "var(--brand-accent)", strokeOpacity: 0.18 }}
+              style={{
+                stroke: "var(--brand-accent)",
+                strokeOpacity: 0.18,
+              }}
             />
 
-            {/* مسیر پرشونده با اسکرول */}
             <motion.path
               d={pathData.d}
               fill="none"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              // glow فقط از md به بالا (روی موبایل برای روان بودن اسکرول حذف شده)
               className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
               style={{
                 pathLength: reduceMotion ? 1 : progress,
@@ -384,7 +558,10 @@ export default function SiteVisualPath({ children }: { children: ReactNode }) {
                     fillOpacity: 0.18,
                   }}
                 />
-                <circle r="4" style={{ fill: "var(--brand-accent)" }} />
+                <circle
+                  r="4"
+                  style={{ fill: "var(--brand-accent)" }}
+                />
               </g>
             )}
           </g>
