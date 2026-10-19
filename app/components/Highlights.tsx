@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -70,12 +71,9 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.6, ease: EASE }}
       onViewportEnter={() => setSeen(true)}
-      // موبایل/تبلت: کارت تمام‌عرض با ریل خط در کنار (ps بزرگ‌تر) و متن start-align
-      // lg+: کارت ۵۲۰px یک‌درمیان چپ و راست و متن وسط‌چین
-      // z-10: کارت بالاتر از خط سراسری (z-5)؛ blur کم تا خط از زیر شیشه محو دیده شود
-      className="group relative z-10 w-full max-w-none overflow-hidden rounded-[28px] border border-light/10 bg-light/5 py-8 ps-14 pe-5 text-start shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-500 hover:border-accent/40 hover:bg-light/10 sm:py-10 sm:ps-16 sm:pe-8 lg:max-w-[520px] lg:px-8 lg:py-11 lg:text-center lg:hover:-translate-y-1"
+      className="group relative z-10 w-[88%] max-w-none overflow-hidden rounded-[28px] border border-light/10 bg-light/5 py-8 ps-14 pe-5 text-start shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-500 hover:border-accent/40 hover:bg-light/10 sm:w-[84%] sm:py-10 sm:ps-16 sm:pe-8 md:w-[78%] lg:w-full lg:max-w-[520px] lg:px-8 lg:py-11 lg:text-center lg:hover:-translate-y-1"
     >
-      {/* نقطه‌ی مخفی مسیر: موبایل/تبلت روی ریل (start-8، هم‌تراز خط تایم‌لاین)، دسکتاپ مرکز کارت */}
+      {/* نقطه‌ی اتصال مسیر سراسری */}
       <span
         data-line-path-point={index}
         aria-hidden="true"
@@ -88,7 +86,7 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
         className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_25%,transparent_48%,rgba(255,255,255,0.02)_75%,rgba(255,255,255,0.08)_100%)]"
       />
 
-      {/* بازتاب متحرک: فقط با هاور (دسکتاپ) و با CSS */}
+      {/* بازتاب متحرک؛ فقط دسکتاپ */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute -inset-y-1/2 left-0 z-0 hidden w-1/3 -translate-x-full rotate-[20deg] bg-linear-to-r from-transparent via-light/15 to-transparent opacity-0 blur-md transition-[translate,opacity] duration-[1100ms] ease-out group-hover:translate-x-[300%] group-hover:opacity-100 motion-reduce:hidden lg:block"
@@ -154,7 +152,7 @@ export default function Highlights() {
                 <div
                   key={`${highlight.title}-${index}`}
                   className={`flex w-full py-3 sm:py-5 lg:py-8 ${
-                    index % 2 === 0 ? "lg:justify-start" : "lg:justify-end"
+                    index % 2 === 0 ? "justify-start" : "justify-end"
                   }`}
                 >
                   <GlassCard h={highlight} index={index} />
