@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { useLocale } from "@/i18n/LocaleProvider";
-
+import MobilePicture from "./MobilePicture";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function Hero() {
@@ -12,10 +12,12 @@ export default function Hero() {
   return (
     <section className="relative flex min-h-[65svh] items-center overflow-hidden bg-navy text-light md:min-h-[70svh]">
       {/* Background image */}
-      <div
+      <MobilePicture
+        src="/images/hero.jpg"
+        alt=""
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/hero.jpg')" }}
+        priority
+        className="absolute inset-0 h-full w-full object-cover object-center"
       />
 
       {/* Overlay */}

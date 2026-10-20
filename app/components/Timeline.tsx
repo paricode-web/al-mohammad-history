@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { useLocale } from "@/i18n/LocaleProvider";
+import MobilePicture from "./MobilePicture";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -338,9 +339,9 @@ export default function Timeline() {
                   >
                     <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
                       {item.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <MobilePicture
                           src={item.image}
+                          sizes="75vw"
                           alt={item.title}
                           loading="lazy"
                           decoding="async"

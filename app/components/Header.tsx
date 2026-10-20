@@ -365,7 +365,7 @@ export default function Header() {
         <div className="flex min-h-full flex-col md:flex-row">
           {/* پنل سفید */}
           <div
-            className={`relative w-full shrink-0 bg-light text-navy will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
+            className={`relative w-full shrink-0 bg-light text-navy will-change-transform max-lg:will-change-auto transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open
                 ? "translate-x-0"
                 : "rtl:translate-x-full ltr:-translate-x-full"
@@ -412,7 +412,7 @@ export default function Header() {
 
           {/* پنل تیره */}
           <div
-            className={`w-full min-w-0 flex-1 bg-navy text-light will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
+            className={`w-full min-w-0 flex-1 bg-navy text-light will-change-transform max-lg:will-change-auto transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
               open
                 ? "translate-x-0"
                 : "rtl:-translate-x-full ltr:translate-x-full"
