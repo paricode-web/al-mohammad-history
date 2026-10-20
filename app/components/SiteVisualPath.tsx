@@ -43,6 +43,8 @@ type SegmentState = {
   total: number;
   active: number;
   partial: number;
+  /** آخرین حالتی که روی DOM اعمال شده؛ برای جلوگیری از نوشتن‌های تکراری استایل */
+  painted: string[];
 };
 
 type Metrics = { top: number; height: number };
@@ -68,6 +70,26 @@ const HEAD_GAIN = 0.45;
 /** موبایل: چند تغییر لایه‌ی پشت‌سرهم یک بار اندازه‌گیری می‌شوند */
 const MOBILE_MEASURE_DEBOUNCE = 120;
 
+/**
+ * موبایل: حداکثر طول هر قطعه (پیکسل).
+ * قطعه‌ی فعال در هر فریم دوباره رسم می‌شود، پس هرچه کوتاه‌تر باشد
+ * ناحیه‌ی بازرسم‌شده کوچک‌تر و فریم سبک‌تر است.
+ */
+const MAX_SEGMENT_LENGTH = 140;
+
+/** موبایل: تغییرات پیشروی کمتر از این مقدار (پیکسل) اصلاً رسم نمی‌شوند */
+const PARTIAL_EPSILON = 0.5;
+
+/**
+ * همگام‌سازی دایره‌ها با نوک خط (دسکتاپ و موبایل):
+ * - FILL_WINDOW_PX: از این فاصله قبل از رسیدن نوک به مرکز دایره، پر شدن شروع
+ *   می‌شود و دقیقاً وقتی نوک به مرکز رسید کامل است (متغیر --line-fill از ۰ تا ۱).
+ * - LEAD_PX: data-line-passed کمی زودتر true می‌شود تا ترنزیشن CSS دایره
+ *   عقب‌تر از خط نماند.
+ */
+const FILL_WINDOW_PX = 36;
+const LEAD_PX = 12;
+
 const EMPTY: PathData = {
   d: "",
   width: 0,
@@ -79,6 +101,8 @@ const EMPTY: PathData = {
 
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
+
+const round = (v: number) => Math.round(v * 100) / 100;
 
 function layoutBox(el: HTMLElement, root: HTMLElement) {
   let x = 0;
@@ -151,6 +175,64 @@ function stepParts(from: Point, to: Point): { cmd: string; to: Point }[] {
   ];
 }
 
+/**
+ * یک منحنی بزیه‌ی مکعبی را به n زیرمنحنی دقیقاً هم‌شکل تقسیم می‌کند.
+ * شکل نهایی هیچ تغییری نمی‌کند؛ فقط به قطعه‌های کوتاه‌تر شکسته می‌شود.
+ */
+function splitCubic(
+  p0: Point,
+  p1: Point,
+  p2: Point,
+  p3: Point,
+  n: number
+): { c1: Point; c2: Point; to: Point }[] {
+  const at = (t: number): Point => {
+    const u = 1 - t;
+    const a = u * u * u;
+    const b = 3 * u * u * t;
+    const c = 3 * u * t * t;
+    const d = t * t * t;
+
+    return {
+      x: a * p0.x + b * p1.x + c * p2.x + d * p3.x,
+      y: a * p0.y + b * p1.y + c * p2.y + d * p3.y,
+    };
+  };
+
+  const derivative = (t: number): Point => {
+    const u = 1 - t;
+    const a = 3 * u * u;
+    const b = 6 * u * t;
+    const c = 3 * t * t;
+
+    return {
+      x: a * (p1.x - p0.x) + b * (p2.x - p1.x) + c * (p3.x - p2.x),
+      y: a * (p1.y - p0.y) + b * (p2.y - p1.y) + c * (p3.y - p2.y),
+    };
+  };
+
+  const parts: { c1: Point; c2: Point; to: Point }[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const t0 = i / n;
+    const t1 = (i + 1) / n;
+    const dt = (t1 - t0) / 3;
+
+    const q0 = at(t0);
+    const q3 = i === n - 1 ? p3 : at(t1);
+    const d0 = derivative(t0);
+    const d1 = derivative(t1);
+
+    parts.push({
+      c1: { x: q0.x + d0.x * dt, y: q0.y + d0.y * dt },
+      c2: { x: q3.x - d1.x * dt, y: q3.y - d1.y * dt },
+      to: q3,
+    });
+  }
+
+  return parts;
+}
+
 /** مسیر کامل (d) + قطعه‌های جدا (برای موبایل) را با هم می‌سازد */
 function createPathBuilder(start: Point) {
   const commands = [`M ${start.x} ${start.y}`];
@@ -165,10 +247,58 @@ function createPathBuilder(start: Point) {
 
   return {
     curve(from: Point, to: Point) {
-      add(makeCurve(from, to), to);
+      const cmd = makeCurve(from, to);
+      commands.push(cmd);
+
+      const middleY = (from.y + to.y) / 2;
+      const c1 = { x: from.x, y: middleY };
+      const c2 = { x: to.x, y: middleY };
+
+      // تخمین طول: میانگین وتر و چندضلعی کنترل
+      const chord = Math.hypot(to.x - from.x, to.y - from.y);
+      const polygon =
+        Math.hypot(c1.x - from.x, c1.y - from.y) +
+        Math.hypot(c2.x - c1.x, c2.y - c1.y) +
+        Math.hypot(to.x - c2.x, to.y - c2.y);
+      const estimate = (chord + polygon) / 2;
+      const n = Math.max(1, Math.ceil(estimate / MAX_SEGMENT_LENGTH));
+
+      if (n === 1) {
+        segments.push(`M ${cursor.x} ${cursor.y} ${cmd}`);
+        cursor = to;
+        return;
+      }
+
+      for (const part of splitCubic(from, c1, c2, to, n)) {
+        segments.push(
+          `M ${round(cursor.x)} ${round(cursor.y)} C ${round(part.c1.x)} ${round(part.c1.y)}, ${round(part.c2.x)} ${round(part.c2.y)}, ${round(part.to.x)} ${round(part.to.y)}`
+        );
+        cursor = part.to;
+      }
+
+      cursor = to;
     },
     line(to: Point) {
-      add(`L ${to.x} ${to.y}`, to);
+      commands.push(`L ${to.x} ${to.y}`);
+
+      const length = Math.hypot(to.x - cursor.x, to.y - cursor.y);
+      const n = Math.max(1, Math.ceil(length / MAX_SEGMENT_LENGTH));
+      const origin = cursor;
+
+      for (let i = 1; i <= n; i++) {
+        const point =
+          i === n
+            ? to
+            : {
+                x: origin.x + ((to.x - origin.x) * i) / n,
+                y: origin.y + ((to.y - origin.y) * i) / n,
+              };
+
+        segments.push(
+          `M ${round(cursor.x)} ${round(cursor.y)} L ${round(point.x)} ${round(point.y)}`
+        );
+        cursor = point;
+      }
     },
     step(from: Point, to: Point) {
       for (const part of stepParts(from, to)) add(part.cmd, part.to);
@@ -309,6 +439,7 @@ export default function SiteVisualPath({
   const dotsRef = useRef<HTMLElement[]>([]);
   const dotProgressRef = useRef<number[]>([]);
   const previousDotStatesRef = useRef<boolean[]>([]);
+  const previousFillRef = useRef<number[]>([]);
 
   // --- فقط برای بهینه‌سازی موبایل ---
   const desktopMqRef = useRef<MediaQueryList | null>(null);
@@ -329,13 +460,23 @@ export default function SiteVisualPath({
   const { scrollY } = useScroll();
   const target = useMotionValue(0);
 
-  // تنظیمات اصلی حفظ شده‌اند.
-  const progress = useSpring(target, {
-    stiffness: 130,
-    damping: 30,
-    mass: 0.5,
-    restDelta: 0.0005,
-  });
+  // دستگاه موبایل/تبلت است یا نه (فقط یک بار، برای انتخاب تنظیمات فنر)
+  const [isMobileDevice] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      !window.matchMedia(DESKTOP_QUERY).matches
+  );
+
+  // دسکتاپ: تنظیمات اصلی حفظ شده‌اند.
+  // موبایل: فنر کمی سریع‌تر آرام می‌گیرد؛ حس نرمی همان است ولی فریم‌های
+  // انتهایی (که فقط کار اضافه برای CPU ضعیف‌اند) کمتر می‌شوند.
+  const progress = useSpring(
+    target,
+    isMobileDevice
+      ? { stiffness: 150, damping: 28, mass: 0.5, restDelta: 0.001 }
+      : { stiffness: 130, damping: 30, mass: 0.5, restDelta: 0.0005 }
+  );
 
   /**
    * فقط زمانی DOM را تغییر می‌دهد که وضعیت یک نقطه عوض شود.
@@ -345,18 +486,44 @@ export default function SiteVisualPath({
       const dots = dotsRef.current;
       const starts = dotProgressRef.current;
       const previous = previousDotStatesRef.current;
+      const fills = previousFillRef.current;
+      const table = tableRef.current;
+
+      const windowSize = table && table.total > 0 ? FILL_WINDOW_PX / table.total : 0;
+      const lead = table && table.total > 0 ? LEAD_PX / table.total : 0;
 
       for (let i = 0; i < dots.length; i++) {
         const start = starts[i];
 
         if (start === undefined) continue;
 
-        const passed = reduceMotion || value >= start;
+        const passed = reduceMotion || value >= start - lead;
 
-        if (previous[i] === passed) continue;
+        if (previous[i] !== passed) {
+          previous[i] = passed;
+          dots[i].dataset.linePassed = String(passed);
+        }
 
-        previous[i] = passed;
-        dots[i].dataset.linePassed = String(passed);
+        // پر شدن پیوسته: ۰ تا ۱ دقیقاً هم‌پای نزدیک شدن نوک خط
+        let fill: number;
+
+        if (reduceMotion) {
+          fill = 1;
+        } else if (windowSize > 0) {
+          const raw = clamp((value - (start - windowSize)) / windowSize, 0, 1);
+
+          // easeOut ملایم تا پر شدن نرم‌تر حس شود
+          fill = 1 - Math.pow(1 - raw, 2);
+        } else {
+          fill = value >= start ? 1 : 0;
+        }
+
+        fill = Math.round(fill * 50) / 50;
+
+        if (fills[i] !== fill) {
+          fills[i] = fill;
+          dots[i].style.setProperty("--line-fill", String(fill));
+        }
       }
     },
     [reduceMotion]
@@ -366,6 +533,9 @@ export default function SiteVisualPath({
    * موبایل: خط پرشونده از چند قطعه ساخته شده.
    * قطعه‌های رد شده ثابت می‌مانند و در هر فریم فقط قطعه‌ی فعال (کوچک) دوباره رسم می‌شود،
    * نه کل مسیر چند هزار پیکسلی. اجرای روان روی گوشی‌های ضعیف از همین‌جا می‌آید.
+   *
+   * بهبود: اگر حالت قطعه نسبت به آخرین رسم تغییری نکرده باشد، هیچ استایلی
+   * نوشته نمی‌شود (جلوگیری از invalidate بی‌دلیل).
    */
   const paintSegment = useCallback(
     (i: number, mode: "hidden" | "full" | "partial", partial = 0) => {
@@ -374,6 +544,12 @@ export default function SiteVisualPath({
 
       if (!el || !state) return;
 
+      const key = mode === "partial" ? `p${partial.toFixed(1)}` : mode;
+
+      if (state.painted[i] === key) return;
+
+      state.painted[i] = key;
+
       if (mode === "hidden") {
         el.style.visibility = "hidden";
         return;
@@ -381,7 +557,7 @@ export default function SiteVisualPath({
 
       el.style.visibility = "visible";
       el.style.strokeDasharray =
-        mode === "full" ? "" : `${partial} ${state.lens[i] + 1}`;
+        mode === "full" ? "" : `${partial.toFixed(1)} ${state.lens[i] + 1}`;
     },
     []
   );
@@ -423,7 +599,7 @@ export default function SiteVisualPath({
       if (
         !force &&
         active === previous &&
-        Math.abs(partial - state.partial) < 0.1
+        Math.abs(partial - state.partial) < PARTIAL_EPSILON
       ) {
         return;
       }
@@ -564,6 +740,7 @@ export default function SiteVisualPath({
 
     dotsRef.current = dots;
     previousDotStatesRef.current = dots.map(() => false);
+    previousFillRef.current = dots.map(() => -1);
 
     const dotYs = dots.map((dot) => {
       const rect = dot.getBoundingClientRect();
@@ -733,6 +910,7 @@ export default function SiteVisualPath({
       dotsRef.current = [];
       dotProgressRef.current = [];
       previousDotStatesRef.current = [];
+      previousFillRef.current = [];
     };
   }, [measure, update]);
 
@@ -771,6 +949,7 @@ export default function SiteVisualPath({
         total: sum,
         active: -2,
         partial: -1,
+        painted: new Array(lens.length).fill(""),
       };
 
       applySegments(progress.get(), true);
@@ -951,6 +1130,8 @@ export default function SiteVisualPath({
                 }}
               />
             ) : (
+              // موبایل/تبلت: بدون drop-shadow. فیلتر روی قطعه‌ی در حال تغییر
+              // در هر فریم دوباره محاسبه می‌شد و روی GPU ضعیف گران‌ترین بخش بود.
               pathData.segments.map((segment, i) => (
                 <path
                   key={i}
@@ -962,7 +1143,6 @@ export default function SiteVisualPath({
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
                   style={{
                     stroke: "var(--brand-accent)",
                     visibility: "hidden",
