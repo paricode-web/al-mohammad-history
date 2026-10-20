@@ -71,7 +71,7 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.6, ease: EASE }}
       onViewportEnter={() => setSeen(true)}
-      className="group relative z-10 w-[88%] max-w-none overflow-hidden rounded-[28px] border border-light/10 bg-light/5 py-8 ps-14 pe-5 text-start shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-500 hover:border-accent/40 hover:bg-light/10 sm:w-[84%] sm:py-10 sm:ps-16 sm:pe-8 md:w-[78%] lg:w-full lg:max-w-[520px] lg:px-8 lg:py-11 lg:text-center lg:hover:-translate-y-1"
+      className="group relative z-10 w-[88%] max-w-none overflow-hidden rounded-[28px] border border-light/10 bg-light/5 max-lg:bg-navy/80 py-8 ps-14 pe-5 text-start shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.25)] lg:backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-500 hover:border-accent/40 hover:bg-light/10 sm:w-[84%] sm:py-10 sm:ps-16 sm:pe-8 md:w-[78%] lg:w-full lg:max-w-[520px] lg:px-8 lg:py-11 lg:text-center lg:hover:-translate-y-1"
     >
       {/* نقطه‌ی اتصال مسیر سراسری */}
       <span

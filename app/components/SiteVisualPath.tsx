@@ -31,9 +31,16 @@ type PathData = {
 };
 
 type Table = {
+  /** هندسه‌ی واقعی مسیر (برای جای سر مسیر) */
   xs: number[];
   ys: number[];
   ls: number[];
+  /**
+   * نقاط کنترل «اسکرول → طول مسیر». روی موبایل، پیمایش افقی پیچ‌ها از
+   * بازه‌ی اسکرول اطراف قرض می‌گیرد تا سر مسیر ناگهان نپرد.
+   */
+  cy: number[];
+  cl: number[];
   total: number;
 };
 
@@ -362,7 +369,7 @@ function runWhenIdle(cb: () => void) {
  * جست‌وجوی دودویی انجام می‌شود؛ نیازی به پیمایش کل جدول نیست.
  */
 function lengthAt(table: Table, y: number) {
-  const { ys, ls, total } = table;
+  const { cy: ys, cl: ls, total } = table;
   const n = ys.length;
 
   if (n < 2 || total <= 0) return 0;
@@ -383,6 +390,116 @@ function lengthAt(table: Table, y: number) {
   const k = span > 0 ? (y - ys[lo]) / span : 0;
 
   return (ls[lo] + (ls[hi] - ls[lo]) * k) / total;
+}
+
+/** درون‌یابی خطی طول مسیر برای یک y روی نمونه‌های یکنواخت */
+function interpLength(ys: number[], ls: number[], y: number) {
+  const n = ys.length;
+
+  if (y <= ys[0]) return ls[0];
+  if (y >= ys[n - 1]) return ls[n - 1];
+
+  let lo = 0;
+  let hi = n - 1;
+
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+
+    if (ys[mid] <= y) lo = mid;
+    else hi = mid;
+  }
+
+  const span = ys[hi] - ys[lo];
+  const k = span > 0 ? (y - ys[lo]) / span : 0;
+
+  return ls[lo] + (ls[hi] - ls[lo]) * k;
+}
+
+/** شیبی (dy/dl) که زیر آن نمونه «افقی» حساب می‌شود */
+const FLAT_SLOPE = 0.5;
+/** بیشترین بازه‌ی اسکرول (px) که هر پیچ از بالا و پایین قرض می‌گیرد */
+const MAX_BORROW = 96;
+
+/**
+ * مشکل: lengthAt بر اساس y کار می‌کند ولی در پیچ‌های افقی موبایل y ثابت است،
+ * پس با ۱px اسکرول سر مسیر صدها پیکسل می‌پرید.
+ *
+ * راه‌حل: برای هر ردیف افقی، بازه‌ای از اسکرول (حداکثر MAX_BORROW از هر طرف)
+ * کنار گذاشته می‌شود و کل مسیر افقی + بخش‌های عمودی کوتاه کنار آن به‌صورت
+ * خطی و پیوسته در همان بازه پیموده می‌شود. هندسه‌ی مسیر تغییر نمی‌کند.
+ */
+function buildScrollControls(ys: number[], ls: number[], borrow: boolean) {
+  const n = ys.length;
+
+  if (!borrow || n < 3) {
+    return { cy: ys.slice(), cl: ls.slice() };
+  }
+
+  // 1) پیدا کردن ردیف‌های افقی [a, b] (اندیس نمونه‌ها)
+  const runs: [number, number][] = [];
+  let start = -1;
+
+  for (let i = 1; i < n; i++) {
+    const dl = ls[i] - ls[i - 1];
+    const flat = dl > 0 && (ys[i] - ys[i - 1]) / dl < FLAT_SLOPE;
+
+    if (flat && start < 0) start = i - 1;
+
+    if (!flat && start >= 0) {
+      runs.push([start, i - 1]);
+      start = -1;
+    }
+  }
+
+  if (start >= 0) runs.push([start, n - 1]);
+
+  if (runs.length === 0) {
+    return { cy: ys.slice(), cl: ls.slice() };
+  }
+
+  // 2) پنجره‌ی قرض‌گرفته‌شده برای هر ردیف
+  const windows: { lo: number; hi: number; llo: number; lhi: number }[] = [];
+
+  runs.forEach(([a, b], k) => {
+    const yA = ys[a];
+    const yB = ys[b];
+
+    const prevY = k > 0 ? ys[runs[k - 1][1]] : ys[0];
+    const nextY = k < runs.length - 1 ? ys[runs[k + 1][0]] : ys[n - 1];
+
+    const room = Math.min((yA - prevY) / 2, (nextY - yB) / 2);
+    const B = clamp(room, 0, MAX_BORROW);
+
+    // جایی برای قرض گرفتن نیست؛ همان رفتار قبلی
+    if (B < 1) return;
+
+    const lo = yA - B;
+    const hi = yB + B;
+
+    windows.push({
+      lo,
+      hi,
+      llo: interpLength(ys, ls, lo),
+      lhi: interpLength(ys, ls, hi),
+    });
+  });
+
+  // 3) نمونه‌های داخل پنجره حذف و با دو نقطه‌ی کنترل جایگزین می‌شوند
+  const pts: [number, number][] = [];
+
+  for (let i = 0; i < n; i++) {
+    const inside = windows.some((w) => ys[i] > w.lo && ys[i] < w.hi);
+
+    if (!inside) pts.push([ys[i], ls[i]]);
+  }
+
+  for (const w of windows) {
+    pts.push([w.lo, w.llo], [w.hi, w.lhi]);
+  }
+
+  pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+
+  return { cy: pts.map((p) => p[0]), cl: pts.map((p) => p[1]) };
 }
 
 /**
@@ -433,13 +550,14 @@ export default function SiteVisualPath({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<SVGPathElement>(null);
-  const headRef = useRef<SVGGElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<Table | null>(null);
 
   const dotsRef = useRef<HTMLElement[]>([]);
   const dotProgressRef = useRef<number[]>([]);
   const previousDotStatesRef = useRef<boolean[]>([]);
   const previousFillRef = useRef<number[]>([]);
+  const hiddenRectRef = useRef<Rect | null>(null);
 
   // --- فقط برای بهینه‌سازی موبایل ---
   const desktopMqRef = useRef<MediaQueryList | null>(null);
@@ -660,9 +778,17 @@ export default function SiteVisualPath({
     const p = scrollable > 0 ? clamp(-top / scrollable, 0, 1) : 1;
 
     const headY = vh * (HEAD_START + HEAD_GAIN * p * p) - top;
+    const value = lengthAt(table, headY);
 
-    target.set(lengthAt(table, headY));
-  }, [scrollY, target]);
+    if (isDesktopRef.current) {
+      // دسکتاپ (Lenis قبلاً اسکرول را نرم می‌کند): همان فنر قبلی
+      target.set(value);
+    } else {
+      // موبایل: اسکرول لمسی خودش نرم است؛ فنر فقط تأخیر ~۲۳۰ms اضافه می‌کرد.
+      // مقدار مستقیم و بدون انیمیشن نوشته می‌شود تا سر مسیر هم‌گام با محتوا بماند.
+      progress.jump(value);
+    }
+  }, [scrollY, target, progress]);
 
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -925,6 +1051,8 @@ export default function SiteVisualPath({
   useLayoutEffect(() => {
     const path = trackRef.current;
 
+    hiddenRectRef.current = pathData.hiddenRect;
+
     if (!path || !pathData.d) {
       tableRef.current = null;
       segmentStateRef.current = null;
@@ -979,7 +1107,9 @@ export default function SiteVisualPath({
         ls.push(length);
       }
 
-      tableRef.current = { xs, ys, ls, total };
+      const { cy, cl } = buildScrollControls(ys, ls, !pathData.desktop);
+
+      tableRef.current = { xs, ys, ls, cy, cl, total };
 
       const container = containerRef.current;
 
@@ -1007,6 +1137,7 @@ export default function SiteVisualPath({
   }, [
     pathData.d,
     pathData.desktop,
+    pathData.hiddenRect,
     pathData.segments,
     applySegments,
     progress,
@@ -1025,9 +1156,21 @@ export default function SiteVisualPath({
     if (head && table) {
       const point = pointAtProgress(table, value);
 
-      head.setAttribute("transform", `translate(${point.x} ${point.y})`);
+      // ترنسفورم CSS روی یک المان HTML جدا؛ مرورگر آن را به لایه‌ی GPU می‌برد
+      // و با حرکت سر، SVG بلند صفحه دوباره رسم نمی‌شود.
+      head.style.transform = `translate3d(${point.x}px, ${point.y}px, 0)`;
 
-      const nextOpacity = value > 0.002 && value < 0.998 ? "1" : "0";
+      // SVG قبلاً سر را داخل ناحیه‌ی مخفی‌ی عنوان کلیپ می‌کرد؛ حالا دستی.
+      const r = hiddenRectRef.current;
+      const inTitle =
+        !!r &&
+        point.x >= r.x &&
+        point.x <= r.x + r.width &&
+        point.y >= r.y &&
+        point.y <= r.y + r.height;
+
+      const nextOpacity =
+        value > 0.002 && value < 0.998 && !inTitle ? "1" : "0";
 
       if (headOpacityRef.current !== nextOpacity) {
         headOpacityRef.current = nextOpacity;
@@ -1150,22 +1293,43 @@ export default function SiteVisualPath({
                 />
               ))
             )}
-
-            {!reduceMotion && (
-              <g ref={headRef} style={{ opacity: 0 }}>
-                <circle
-                  r="9"
-                  style={{
-                    fill: "var(--brand-accent)",
-                    fillOpacity: 0.18,
-                  }}
-                />
-
-                <circle r="4" style={{ fill: "var(--brand-accent)" }} />
-              </g>
-            )}
           </g>
         </svg>
+      )}
+
+      {/* سر مسیر: المان HTML مستقل (لایه‌ی GPU) به‌جای <g> داخل SVG بلند */}
+      {pathData.d && !reduceMotion && (
+        <div
+          ref={headRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute z-[5] will-change-transform"
+          style={{ left: 0, top: 0, width: 0, height: 0, opacity: 0 }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: -9,
+              top: -9,
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              background: "var(--brand-accent)",
+              opacity: 0.18,
+            }}
+          />
+
+          <span
+            style={{
+              position: "absolute",
+              left: -4,
+              top: -4,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: "var(--brand-accent)",
+            }}
+          />
+        </div>
       )}
     </div>
   );
