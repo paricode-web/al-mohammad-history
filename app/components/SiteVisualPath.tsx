@@ -75,7 +75,7 @@ const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
 /** موبایل: چند تغییر لایه‌ی پشت‌سرهم یک بار اندازه‌گیری می‌شوند */
-const MOBILE_MEASURE_DEBOUNCE = 120;
+const MOBILE_MEASURE_DEBOUNCE = 220;
 
 /**
  * موبایل: حداکثر طول هر قطعه (پیکسل).
@@ -960,7 +960,7 @@ export default function SiteVisualPath({
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
+let updateFrame = 0;
     let frame = 0;
     let timer = 0;
     let lastWidth = window.innerWidth;
@@ -981,18 +981,20 @@ export default function SiteVisualPath({
     };
 
     const onResize = () => {
-      const width = window.innerWidth;
-      const widthChanged = width !== lastWidth;
+  const width = window.innerWidth;
+  const widthChanged = width !== lastWidth;
 
-      lastWidth = width;
+  lastWidth = width;
 
-      // موبایل: بالا/پایین رفتن نوار آدرس هنگام اسکرول فقط ارتفاع دید را عوض می‌کند.
-      // اندازه‌گیری مجدد کل صفحه لازم نیست و باعث گیر کردن اسکرول می‌شد.
-      if (!isDesktopRef.current && !widthChanged) {
-        viewportHeightRef.current = window.innerHeight;
-        update();
-        return;
-      }
+  // موبایل: تغییر ارتفاع نوار آدرس نیازی به اندازه‌گیری مجدد کل صفحه ندارد.
+  if (!isDesktopRef.current && !widthChanged) {
+    viewportHeightRef.current = window.innerHeight;
+
+    cancelAnimationFrame(updateFrame);
+    updateFrame = requestAnimationFrame(update);
+
+    return;
+  }
 
       schedule();
     };
