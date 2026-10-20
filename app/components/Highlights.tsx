@@ -100,13 +100,13 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
       />
 
       <div className="relative z-10">
-        <h3
-          className={`font-bold leading-tight tracking-tight text-light transition-colors duration-300 group-hover:text-accent ${
-            isNumber
-              ? "text-4xl sm:text-5xl lg:text-6xl"
-              : "text-xl leading-snug sm:text-2xl lg:text-3xl"
-          }`}
-        >
+      <h3
+  className={`font-bold leading-tight tracking-tight text-light tabular-nums ${
+    isNumber
+      ? "whitespace-nowrap text-4xl sm:text-5xl lg:text-6xl"
+      : "text-xl leading-snug sm:text-2xl lg:text-3xl"
+  }`}
+>
           {isNumber ? (
             <>
               {count.toLocaleString(numberLocale[locale])}

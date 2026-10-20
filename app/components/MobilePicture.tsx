@@ -1,13 +1,7 @@
 "use client";
 
-import type { ImgHTMLAttributes } from "react";
+import type { ImgHTMLAttributes, CSSProperties } from "react";
 
-/**
- * تصویر بهینه فقط برای موبایل/تبلت (زیر ۱۰۲۴px).
- * دسکتاپ دقیقاً همان فایل اصلی را مثل قبل می‌گیرد؛ موبایل نسخه‌ی کوچک‌شده‌ی
- * WebP را از optimizer خود Next می‌گیرد. اگر آن نسخه بارگذاری نشد، خودکار
- * به فایل اصلی برمی‌گردد.
- */
 const MOBILE_WIDTHS = [640, 750, 828, 1080];
 
 function mobileSrcSet(src: string) {
@@ -18,9 +12,9 @@ function mobileSrcSet(src: string) {
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet"> & {
   src: string;
-  /** اندازه‌ی نمایش روی موبایل نسبت به عرض صفحه */
   sizes?: string;
   priority?: boolean;
+  aspectRatio?: string;
 };
 
 export default function MobilePicture({
@@ -31,10 +25,34 @@ export default function MobilePicture({
   decoding = "async",
   loading,
   onError,
+  aspectRatio,
+  style,
   ...rest
 }: Props) {
+  const imageStyle: CSSProperties = {
+    ...style,
+    ...(aspectRatio
+      ? {
+          width: "100%",
+          height: "100%",
+          objectFit: "cover" as const,
+        }
+      : {}),
+  };
+
   return (
-    <picture>
+    <picture
+      style={
+        aspectRatio
+          ? {
+              display: "block",
+              width: "100%",
+              aspectRatio,
+              overflow: "hidden",
+            }
+          : undefined
+      }
+    >
       <source
         media="(max-width: 1023.98px)"
         srcSet={mobileSrcSet(src)}
@@ -49,11 +67,12 @@ export default function MobilePicture({
         decoding={decoding}
         loading={priority ? "eager" : (loading ?? "lazy")}
         fetchPriority={priority ? "high" : undefined}
+        style={imageStyle}
         onError={(e) => {
-          // نسخه‌ی بهینه‌ی موبایل در دسترس نبود: به فایل اصلی برگرد
           e.currentTarget.parentElement
             ?.querySelectorAll("source")
-            .forEach((s) => s.remove());
+            .forEach((source) => source.remove());
+
           onError?.(e);
         }}
       />

@@ -75,7 +75,7 @@ const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
 /** موبایل: چند تغییر لایه‌ی پشت‌سرهم یک بار اندازه‌گیری می‌شوند */
-const MOBILE_MEASURE_DEBOUNCE = 220;
+const MOBILE_MEASURE_DEBOUNCE = 50;
 
 /**
  * موبایل: حداکثر طول هر قطعه (پیکسل).
