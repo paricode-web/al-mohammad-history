@@ -1,6 +1,6 @@
 "use client";
 
-import type { ImgHTMLAttributes, CSSProperties } from "react";
+import type { ImgHTMLAttributes } from "react";
 
 const MOBILE_WIDTHS = [640, 750, 828, 1080];
 
@@ -10,11 +10,14 @@ function mobileSrcSet(src: string) {
   ).join(", ");
 }
 
-type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet"> & {
+type Props = Omit<
+  ImgHTMLAttributes<HTMLImageElement>,
+  "src" | "srcSet"
+> & {
   src: string;
   sizes?: string;
   priority?: boolean;
-  aspectRatio?: string;
+  frameClassName?: string;
 };
 
 export default function MobilePicture({
@@ -25,33 +28,13 @@ export default function MobilePicture({
   decoding = "async",
   loading,
   onError,
-  aspectRatio,
-  style,
+  className = "",
+  frameClassName = "",
   ...rest
 }: Props) {
-  const imageStyle: CSSProperties = {
-    ...style,
-    ...(aspectRatio
-      ? {
-          width: "100%",
-          height: "100%",
-          objectFit: "cover" as const,
-        }
-      : {}),
-  };
-
   return (
     <picture
-      style={
-        aspectRatio
-          ? {
-              display: "block",
-              width: "100%",
-              aspectRatio,
-              overflow: "hidden",
-            }
-          : undefined
-      }
+      className={`block w-full ${frameClassName}`}
     >
       <source
         media="(max-width: 1023.98px)"
@@ -67,11 +50,11 @@ export default function MobilePicture({
         decoding={decoding}
         loading={priority ? "eager" : (loading ?? "lazy")}
         fetchPriority={priority ? "high" : undefined}
-        style={imageStyle}
+        className={className}
         onError={(e) => {
           e.currentTarget.parentElement
             ?.querySelectorAll("source")
-            .forEach((source) => source.remove());
+            .forEach((s) => s.remove());
 
           onError?.(e);
         }}

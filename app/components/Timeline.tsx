@@ -337,29 +337,26 @@ export default function Timeline() {
                       textFirst ? "lg:order-2" : "lg:order-1"
                     }
                   >
-                    <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
-                      {item.image ? (
-                        <MobilePicture
-                          src={item.image}
-                          sizes="75vw"
-                          alt={item.title}
-                          loading="lazy"
-                          decoding="async"
-                          onLoad={() => {
-                            // در موبایل aspect ratio ثابت است؛
-                            // refresh برای هر تصویر لازم نیست.
-                            if (
-                              window.matchMedia(DESKTOP_QUERY).matches
-                            ) {
-                              ScrollTrigger.refresh();
-                            }
-                          }}
-                          className="aspect-[4/3] w-full object-cover opacity-90 saturate-75 transition duration-700 group-hover/img:scale-105 group-hover/img:opacity-100 group-hover/img:saturate-100 lg:aspect-auto"
-                        />
-                      ) : (
-                        <div className="aspect-[4/3] w-full bg-light/5" />
-                      )}
-                    </div>
+                   <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
+  {item.image ? (
+    <MobilePicture
+      src={item.image}
+      sizes="75vw"
+      alt={item.title}
+      loading="lazy"
+      decoding="async"
+      frameClassName="aspect-[4/3] lg:aspect-auto"
+      className="block h-full w-full object-cover opacity-90 saturate-75 transition duration-700 group-hover/img:scale-105 group-hover/img:opacity-100 group-hover/img:saturate-100 lg:h-auto"
+      onLoad={() => {
+        if (window.matchMedia(DESKTOP_QUERY).matches) {
+          ScrollTrigger.refresh();
+        }
+      }}
+    />
+  ) : (
+    <div className="aspect-[4/3] w-full bg-light/5" />
+  )}
+</div>
                   </div>
                 </li>
               );
