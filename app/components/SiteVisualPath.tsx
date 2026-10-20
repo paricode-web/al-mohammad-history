@@ -26,6 +26,8 @@ type PathData = {
   height: number;
   hiddenRect: Rect | null;
   desktop: boolean;
+  /** فقط موبایل/تبلت: مسیر به قطعه‌های کوچک تقسیم می‌شود */
+  segments: string[];
 };
 
 type Table = {
@@ -33,6 +35,14 @@ type Table = {
   ys: number[];
   ls: number[];
   total: number;
+};
+
+type SegmentState = {
+  lens: number[];
+  ends: number[];
+  total: number;
+  active: number;
+  partial: number;
 };
 
 type Metrics = { top: number; height: number };
@@ -55,12 +65,16 @@ const CORNER_RADIUS = 24;
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
+/** موبایل: چند تغییر لایه‌ی پشت‌سرهم یک بار اندازه‌گیری می‌شوند */
+const MOBILE_MEASURE_DEBOUNCE = 120;
+
 const EMPTY: PathData = {
   d: "",
   width: 0,
   height: 0,
   hiddenRect: null,
   desktop: true,
+  segments: [],
 };
 
 const clamp = (v: number, min: number, max: number) =>
@@ -92,10 +106,11 @@ function makeCurve(from: Point, to: Point) {
 }
 
 /**
- * مسیر موبایل با پیچ‌های نرم.
- * شکل مسیر دسکتاپ تغییری نمی‌کند.
+ * مسیر موبایل با پیچ‌های نرم (هندسه‌ی دقیقاً مثل قبل).
+ * به‌جای یک رشته‌ی بلند، آرایه‌ای از فرمان‌ها برمی‌گرداند تا هر فرمان
+ * بتواند یک قطعه‌ی مستقل در موبایل باشد.
  */
-function makeStep(from: Point, to: Point) {
+function stepParts(from: Point, to: Point): { cmd: string; to: Point }[] {
   const run = Math.abs(to.x - from.x);
   const drop = to.y - from.y;
   const dir = to.x >= from.x ? 1 : -1;
@@ -103,7 +118,7 @@ function makeStep(from: Point, to: Point) {
   const r = Math.min(CORNER_RADIUS, Math.max(0, drop / 2), run / 2);
 
   if (run < 1 || drop < 1 || r < 1) {
-    return `L ${to.x} ${to.y}`;
+    return [{ cmd: `L ${to.x} ${to.y}`, to }];
   }
 
   const midY = (from.y + to.y) / 2;
@@ -113,16 +128,55 @@ function makeStep(from: Point, to: Point) {
   const secondCornerX = to.x - dir * r;
 
   return [
-    `L ${from.x} ${midY - r}`,
-    `C ${from.x} ${midY - r + k * r},
-       ${firstCornerX - dir * k * r} ${midY},
-       ${firstCornerX} ${midY}`,
-    `L ${secondCornerX} ${midY}`,
-    `C ${secondCornerX + dir * k * r} ${midY},
-       ${to.x} ${midY + r - k * r},
-       ${to.x} ${midY + r}`,
-    `L ${to.x} ${to.y}`,
-  ].join(" ");
+    {
+      cmd: `L ${from.x} ${midY - r}`,
+      to: { x: from.x, y: midY - r },
+    },
+    {
+      cmd: `C ${from.x} ${midY - r + k * r}, ${firstCornerX - dir * k * r} ${midY}, ${firstCornerX} ${midY}`,
+      to: { x: firstCornerX, y: midY },
+    },
+    {
+      cmd: `L ${secondCornerX} ${midY}`,
+      to: { x: secondCornerX, y: midY },
+    },
+    {
+      cmd: `C ${secondCornerX + dir * k * r} ${midY}, ${to.x} ${midY + r - k * r}, ${to.x} ${midY + r}`,
+      to: { x: to.x, y: midY + r },
+    },
+    {
+      cmd: `L ${to.x} ${to.y}`,
+      to,
+    },
+  ];
+}
+
+/** مسیر کامل (d) + قطعه‌های جدا (برای موبایل) را با هم می‌سازد */
+function createPathBuilder(start: Point) {
+  const commands = [`M ${start.x} ${start.y}`];
+  const segments: string[] = [];
+  let cursor = start;
+
+  const add = (cmd: string, to: Point) => {
+    commands.push(cmd);
+    segments.push(`M ${cursor.x} ${cursor.y} ${cmd}`);
+    cursor = to;
+  };
+
+  return {
+    curve(from: Point, to: Point) {
+      add(makeCurve(from, to), to);
+    },
+    line(to: Point) {
+      add(`L ${to.x} ${to.y}`, to);
+    },
+    step(from: Point, to: Point) {
+      for (const part of stepParts(from, to)) add(part.cmd, part.to);
+    },
+    result() {
+      return { d: commands.join(" "), segments };
+    },
+  };
 }
 
 function samePath(a: PathData, b: PathData) {
@@ -157,9 +211,12 @@ function clipWithHole(width: number, height: number, hole: Rect) {
   return `M0 0H${width}V${height}H0Z M${x} ${y}H${x + w}V${y + h}H${x}Z`;
 }
 
-/** کارهای سنگین را در زمان بیکاری مرورگر اجرا می‌کند تا اسکرول گیر نکند */
+/** کارهای سنگین را در زمان بیکاری مرورگر اجرا می‌کند (با جایگزین برای مرورگرهای قدیمی) */
 function runWhenIdle(cb: () => void) {
-  if (typeof window.requestIdleCallback === "function") {
+  if (
+    typeof window.requestIdleCallback === "function" &&
+    typeof window.cancelIdleCallback === "function"
+  ) {
     const id = window.requestIdleCallback(cb, { timeout: 250 });
 
     return () => window.cancelIdleCallback(id);
@@ -259,6 +316,8 @@ export default function SiteVisualPath({
   const metricsRef = useRef<Metrics>({ top: 0, height: 0 });
   const viewportHeightRef = useRef(0);
   const headOpacityRef = useRef("0");
+  const segmentRefs = useRef<(SVGPathElement | null)[]>([]);
+  const segmentStateRef = useRef<SegmentState | null>(null);
 
   const reduceMotion = useReducedMotion();
   const uid = useId().replace(/:/g, "");
@@ -301,6 +360,95 @@ export default function SiteVisualPath({
       }
     },
     [reduceMotion]
+  );
+
+  /**
+   * موبایل: خط پرشونده از چند قطعه ساخته شده.
+   * قطعه‌های رد شده ثابت می‌مانند و در هر فریم فقط قطعه‌ی فعال (کوچک) دوباره رسم می‌شود،
+   * نه کل مسیر چند هزار پیکسلی. اجرای روان روی گوشی‌های ضعیف از همین‌جا می‌آید.
+   */
+  const paintSegment = useCallback(
+    (i: number, mode: "hidden" | "full" | "partial", partial = 0) => {
+      const el = segmentRefs.current[i];
+      const state = segmentStateRef.current;
+
+      if (!el || !state) return;
+
+      if (mode === "hidden") {
+        el.style.visibility = "hidden";
+        return;
+      }
+
+      el.style.visibility = "visible";
+      el.style.strokeDasharray =
+        mode === "full" ? "" : `${partial} ${state.lens[i] + 1}`;
+    },
+    []
+  );
+
+  const applySegments = useCallback(
+    (value: number, force = false) => {
+      const state = segmentStateRef.current;
+
+      if (!state) return;
+
+      const { ends, lens, total } = state;
+      const n = ends.length;
+
+      if (n === 0 || total <= 0) return;
+
+      const length = (reduceMotion ? 1 : clamp(value, 0, 1)) * total;
+
+      // اولین قطعه‌ای که انتهایش به طول فعلی رسیده
+      let active = -1;
+
+      if (length > 0) {
+        let lo = 0;
+        let hi = n - 1;
+
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+
+          if (ends[mid] >= length) hi = mid;
+          else lo = mid + 1;
+        }
+
+        active = lo;
+      }
+
+      const previous = state.active;
+      const partial = active >= 0 ? length - (ends[active] - lens[active]) : 0;
+
+      // فقط وقتی قطعه‌ی فعال همان است و تغییر بسیار ریز است، کاری نکن
+      if (
+        !force &&
+        active === previous &&
+        Math.abs(partial - state.partial) < 0.1
+      ) {
+        return;
+      }
+
+      const from = force ? 0 : Math.max(0, Math.min(previous, active));
+      const to = force ? n - 1 : Math.min(n - 1, Math.max(previous, active));
+
+      for (let i = from; i <= to; i++) {
+        if (i < active) {
+          paintSegment(i, "full");
+        } else if (i > active) {
+          paintSegment(i, "hidden");
+        } else if (partial < 0.25) {
+          paintSegment(i, "hidden");
+        } else if (partial >= lens[i] - 0.05) {
+          paintSegment(i, "full");
+        } else {
+          paintSegment(i, "partial", partial);
+        }
+      }
+
+      state.active = active;
+      state.partial = partial;
+    },
+    [paintSegment, reduceMotion]
   );
 
   const update = useCallback(() => {
@@ -436,6 +584,7 @@ export default function SiteVisualPath({
       .filter((p): p is Point => p !== null);
 
     let d = "";
+    let segments: string[] = [];
 
     if (
       !isDesktop &&
@@ -445,45 +594,42 @@ export default function SiteVisualPath({
       meanderTops.length === meanderBottoms.length
     ) {
       const lastIndex = meanderTops.length - 1;
+      const builder = createPathBuilder(start);
 
-      const commands = [
-        `M ${start.x} ${start.y}`,
-        makeCurve(start, meanderTops[0]),
-      ];
+      builder.curve(start, meanderTops[0]);
 
       for (let i = 0; i <= lastIndex; i++) {
-        commands.push(`L ${meanderBottoms[i].x} ${meanderBottoms[i].y}`);
+        builder.line(meanderBottoms[i]);
 
         if (i < lastIndex) {
-          commands.push(makeStep(meanderBottoms[i], meanderTops[i + 1]));
+          builder.step(meanderBottoms[i], meanderTops[i + 1]);
         }
       }
 
-      commands.push(makeCurve(meanderBottoms[lastIndex], firstHighlight));
+      builder.curve(meanderBottoms[lastIndex], firstHighlight);
 
       for (let i = 1; i < highlightPoints.length; i++) {
-        commands.push(makeCurve(highlightPoints[i - 1], highlightPoints[i]));
+        builder.curve(highlightPoints[i - 1], highlightPoints[i]);
       }
 
-      d = commands.join(" ");
+      ({ d, segments } = builder.result());
     } else if (start && timelineStart && timelineEnd && firstHighlight) {
       const verticalEnd = {
         x: timelineStart.x,
         y: timelineEnd.y,
       };
 
-      const commands = [
-        `M ${start.x} ${start.y}`,
-        makeCurve(start, timelineStart),
-        `L ${verticalEnd.x} ${verticalEnd.y}`,
-        makeCurve(verticalEnd, firstHighlight),
-      ];
+      const builder = createPathBuilder(start);
+
+      builder.curve(start, timelineStart);
+      builder.line(verticalEnd);
+      builder.curve(verticalEnd, firstHighlight);
 
       for (let i = 1; i < highlightPoints.length; i++) {
-        commands.push(makeCurve(highlightPoints[i - 1], highlightPoints[i]));
+        builder.curve(highlightPoints[i - 1], highlightPoints[i]);
       }
 
-      d = commands.join(" ");
+      ({ d, segments } = builder.result());
     }
 
     const next: PathData = {
@@ -492,6 +638,7 @@ export default function SiteVisualPath({
       height,
       hiddenRect,
       desktop: isDesktop,
+      segments: isDesktop ? [] : segments,
     };
 
     setPathData((prev) => (samePath(prev, next) ? prev : next));
@@ -512,11 +659,22 @@ export default function SiteVisualPath({
     if (!container) return;
 
     let frame = 0;
+    let timer = 0;
     let lastWidth = window.innerWidth;
 
     const schedule = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
+      window.clearTimeout(timer);
+
+      // دسکتاپ: مثل قبل | موبایل: چند تغییر پشت‌سرهم یک اندازه‌گیری
+      if (isDesktopRef.current) {
+        frame = requestAnimationFrame(measure);
+        return;
+      }
+
+      timer = window.setTimeout(() => {
+        frame = requestAnimationFrame(measure);
+      }, MOBILE_MEASURE_DEBOUNCE);
     };
 
     const onResize = () => {
@@ -538,22 +696,27 @@ export default function SiteVisualPath({
 
     measure();
 
-    const observer = new ResizeObserver(schedule);
+    // مرورگرهای خیلی قدیمی ResizeObserver ندارند؛ در آن حالت فقط resize و load کافی است.
+    let observer: ResizeObserver | null = null;
 
-    observer.observe(container);
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(schedule);
 
-    container
-      .querySelectorAll(
-        [
-          "article",
-          "li",
-          "h1",
-          "[data-line-anchor]",
-          "[data-timeline-dot]",
-          "[data-line-meander]",
-        ].join(", ")
-      )
-      .forEach((el) => observer.observe(el));
+      observer.observe(container);
+
+      container
+        .querySelectorAll(
+          [
+            "article",
+            "li",
+            "h1",
+            "[data-line-anchor]",
+            "[data-timeline-dot]",
+            "[data-line-meander]",
+          ].join(", ")
+        )
+        .forEach((el) => observer?.observe(el));
+    }
 
     window.addEventListener("resize", onResize);
     window.addEventListener("load", schedule);
@@ -561,7 +724,8 @@ export default function SiteVisualPath({
 
     return () => {
       cancelAnimationFrame(frame);
-      observer.disconnect();
+      window.clearTimeout(timer);
+      observer?.disconnect();
 
       window.removeEventListener("resize", onResize);
       window.removeEventListener("load", schedule);
@@ -575,17 +739,41 @@ export default function SiteVisualPath({
   useMotionValueEvent(scrollY, "change", update);
 
   /**
-   * ساخت جدول مختصات مسیر.
+   * ساخت جدول مختصات مسیر + اطلاعات قطعه‌های موبایل.
    * دسکتاپ: مثل قبل و همان لحظه.
-   * موبایل: اولین بار فوری، دفعات بعد در زمان بیکاری (تا وسط اسکرول کار سنگین اجرا نشود)
-   * و با نمونه‌برداری کم‌تراکم‌تر.
+   * موبایل: قطعه‌ها همیشه فوری (ارزان)؛ جدول نمونه‌برداری بار اول فوری و دفعات بعد
+   * در زمان بیکاری، و با نمونه‌برداری کم‌تراکم‌تر.
    */
   useLayoutEffect(() => {
     const path = trackRef.current;
 
     if (!path || !pathData.d) {
       tableRef.current = null;
+      segmentStateRef.current = null;
       return;
+    }
+
+    if (pathData.desktop) {
+      segmentStateRef.current = null;
+    } else {
+      segmentRefs.current.length = pathData.segments.length;
+
+      const lens = pathData.segments.map(
+        (_, i) => segmentRefs.current[i]?.getTotalLength() ?? 0
+      );
+
+      let sum = 0;
+      const ends = lens.map((len) => (sum += len));
+
+      segmentStateRef.current = {
+        lens,
+        ends,
+        total: sum,
+        active: -2,
+        partial: -1,
+      };
+
+      applySegments(progress.get(), true);
     }
 
     const build = () => {
@@ -637,7 +825,15 @@ export default function SiteVisualPath({
     }
 
     return runWhenIdle(build);
-  }, [pathData.d, pathData.desktop, progress, syncDots, update]);
+  }, [
+    pathData.d,
+    pathData.desktop,
+    pathData.segments,
+    applySegments,
+    progress,
+    syncDots,
+    update,
+  ]);
 
   /**
    * دیگر در هر فریم getPointAtLength فراخوانی نمی‌شود.
@@ -661,6 +857,8 @@ export default function SiteVisualPath({
     }
 
     syncDots(value);
+
+    if (!reduceMotion) applySegments(value);
   });
 
   return (
@@ -739,18 +937,39 @@ export default function SiteVisualPath({
               }}
             />
 
-            <motion.path
-              d={pathData.d}
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
-              style={{
-                pathLength: reduceMotion ? 1 : progress,
-                stroke: "var(--brand-accent)",
-              }}
-            />
+            {pathData.desktop ? (
+              <motion.path
+                d={pathData.d}
+                fill="none"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
+                style={{
+                  pathLength: reduceMotion ? 1 : progress,
+                  stroke: "var(--brand-accent)",
+                }}
+              />
+            ) : (
+              pathData.segments.map((segment, i) => (
+                <path
+                  key={i}
+                  ref={(el) => {
+                    segmentRefs.current[i] = el;
+                  }}
+                  d={segment}
+                  fill="none"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
+                  style={{
+                    stroke: "var(--brand-accent)",
+                    visibility: "hidden",
+                  }}
+                />
+              ))
+            )}
 
             {!reduceMotion && (
               <g ref={headRef} style={{ opacity: 0 }}>
