@@ -957,91 +957,91 @@ export default function SiteVisualPath({
     }
   }, [progress, syncDots]);
 
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-let updateFrame = 0;
-    let frame = 0;
-    let timer = 0;
-    let lastWidth = window.innerWidth;
+useLayoutEffect(() => {
+  const container = containerRef.current;
+  if (!container) return;
 
-    const schedule = () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
+  let updateFrame = 0;
+  let frame = 0;
+  let timer = 0;
+  let lastWidth = window.innerWidth;
 
-      // دسکتاپ: مثل قبل | موبایل: چند تغییر پشت‌سرهم یک اندازه‌گیری
-      if (isDesktopRef.current) {
-        frame = requestAnimationFrame(measure);
-        return;
-      }
+  const schedule = () => {
+    cancelAnimationFrame(frame);
+    window.clearTimeout(timer);
 
-      timer = window.setTimeout(() => {
-        frame = requestAnimationFrame(measure);
-      }, MOBILE_MEASURE_DEBOUNCE);
-    };
-
-    const onResize = () => {
-  const width = window.innerWidth;
-  const widthChanged = width !== lastWidth;
-
-  lastWidth = width;
-
-  // موبایل: تغییر ارتفاع نوار آدرس نیازی به اندازه‌گیری مجدد کل صفحه ندارد.
-  if (!isDesktopRef.current && !widthChanged) {
-    viewportHeightRef.current = window.innerHeight;
-
-    cancelAnimationFrame(updateFrame);
-    updateFrame = requestAnimationFrame(update);
-
-    return;
-  }
-
-      schedule();
-    };
-
-    measure();
-
-    // مرورگرهای خیلی قدیمی ResizeObserver ندارند؛ در آن حالت فقط resize و load کافی است.
-    let observer: ResizeObserver | null = null;
-
-    if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(schedule);
-
-      observer.observe(container);
-
-      container
-        .querySelectorAll(
-          [
-            "article",
-            "li",
-            "h1",
-            "[data-line-anchor]",
-            "[data-timeline-dot]",
-            "[data-line-meander]",
-          ].join(", ")
-        )
-        .forEach((el) => observer?.observe(el));
+    if (isDesktopRef.current) {
+      frame = requestAnimationFrame(measure);
+      return;
     }
 
-    window.addEventListener("resize", onResize);
-    window.addEventListener("load", schedule);
-    document.fonts?.ready.then(schedule);
+    timer = window.setTimeout(() => {
+      frame = requestAnimationFrame(measure);
+    }, MOBILE_MEASURE_DEBOUNCE);
+  };
 
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-      observer?.disconnect();
+  const onResize = () => {
+    const width = window.innerWidth;
+    const widthChanged = width !== lastWidth;
 
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("load", schedule);
+    lastWidth = width;
 
-      dotsRef.current = [];
-      dotProgressRef.current = [];
-      previousDotStatesRef.current = [];
-      previousFillRef.current = [];
-    };
-  }, [measure, update]);
+    // تغییر ارتفاع نوار آدرس موبایل نیاز به اندازه‌گیری مجدد مسیر ندارد.
+    if (!isDesktopRef.current && !widthChanged) {
+      viewportHeightRef.current = window.innerHeight;
 
+      cancelAnimationFrame(updateFrame);
+      updateFrame = requestAnimationFrame(update);
+
+      return;
+    }
+
+    schedule();
+  };
+
+  measure();
+
+  let observer: ResizeObserver | null = null;
+
+  if (typeof ResizeObserver !== "undefined") {
+    observer = new ResizeObserver(schedule);
+    observer.observe(container);
+
+    container
+      .querySelectorAll(
+        [
+          "article",
+          "li",
+          "h1",
+          "[data-line-anchor]",
+          "[data-timeline-dot]",
+          "[data-line-meander]",
+        ].join(", ")
+      )
+      .forEach((el) => observer?.observe(el));
+  }
+
+  window.addEventListener("resize", onResize);
+  window.addEventListener("load", schedule);
+
+  document.fonts?.ready.then(schedule);
+
+  return () => {
+    cancelAnimationFrame(updateFrame);
+    cancelAnimationFrame(frame);
+    window.clearTimeout(timer);
+
+    observer?.disconnect();
+
+    window.removeEventListener("resize", onResize);
+    window.removeEventListener("load", schedule);
+
+    dotsRef.current = [];
+    dotProgressRef.current = [];
+    previousDotStatesRef.current = [];
+    previousFillRef.current = [];
+  };
+}, [measure, update]);
   useMotionValueEvent(scrollY, "change", update);
 
   /**
@@ -1069,7 +1069,9 @@ let updateFrame = 0;
       const lens = pathData.segments.map(
         (_, i) => segmentRefs.current[i]?.getTotalLength() ?? 0
       );
-
+if (process.env.NODE_ENV === "development") {
+  console.info("[SiteVisualPath] Mobile segments:", lens.length);
+}
       let sum = 0;
       const ends = lens.map((len) => (sum += len));
 
