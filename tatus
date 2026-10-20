@@ -1,0 +1,20 @@
+[33m0962f82[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{Tue Oct 20 13:21:13 2026}: commit: feat: add MobilePicture component and update related files
+[33mbc385c3[m HEAD@{Tue Oct 20 12:18:40 2026}: merge origin/master: Merge made by the 'ort' strategy.
+[33me9cee0b[m[33m ([m[1;32mbackup-before-sync[m[33m)[m HEAD@{Tue Oct 20 12:16:13 2026}: commit: fix: smooth golden route animation on mobile
+[33m23aaa38[m HEAD@{Tue Oct 20 11:49:05 2026}: reset: moving to HEAD~1
+[33mda56f31[m HEAD@{Tue Oct 20 11:32:04 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33m23aaa38[m HEAD@{Tue Oct 20 11:27:53 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33mbfd3def[m HEAD@{Tue Oct 20 11:04:25 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33ma21c01e[m HEAD@{Tue Oct 20 10:58:32 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33m3f78004[m HEAD@{Mon Oct 19 19:07:03 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33m15a171c[m HEAD@{Mon Oct 19 19:00:02 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33m3bb300a[m HEAD@{Mon Oct 19 18:01:49 2026}: commit: perf: optimize mobile timeline and smooth route animation
+[33m51ad196[m HEAD@{Mon Oct 19 17:48:42 2026}: commit: perf: smooth mobile timeline animation
+[33m5f2dce5[m HEAD@{Mon Oct 19 17:31:05 2026}: commit: perf: smooth mobile route animation with dedicated spring
+[33m8e7191c[m HEAD@{Mon Oct 19 16:59:06 2026}: commit: perf: optimize scroll-synced SVG animation
+[33m15cc2db[m HEAD@{Mon Oct 19 16:54:26 2026}: commit: perf: optimize scroll-synced SVG animation
+[33mded8cfa[m HEAD@{Mon Oct 19 16:43:06 2026}: commit: perf: optimize scroll-synced SVG animation
+[33m5e8a81f[m HEAD@{Mon Oct 19 16:38:00 2026}: commit: perf: smooth mobile timeline path animation
+[33me171e46[m HEAD@{Mon Oct 19 16:32:59 2026}: commit: perf: smooth mobile timeline path animation
+[33mf20ec24[m HEAD@{Mon Oct 19 16:21:03 2026}: commit: feat: redesign desktop timeline layout
+[33m6027514[m HEAD@{Mon Oct 19 15:46:43 2026}: commit: style: update highlights section

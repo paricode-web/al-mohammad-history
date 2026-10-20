@@ -117,4 +117,64 @@ export const en: Content = {
       ],
     },
   ],
+  
+practiceAreasIntro: {
+  title: "Practice Areas",
+  description:
+    "Drawing on specialized, multi-decade experience, the firm has always been a trusted reference for resolving clients' legal matters, providing the best solutions in keeping with legal and ethical principles.",
+  image: "/images/office-history/IMG_3047.webp",
+},
+
+practiceAreas: [
+  {
+    id: "property",
+    title: "Real Estate Disputes",
+    items: [
+      "Ownership disputes",
+      "Encroachment on property rights",
+      "Lease and eviction disputes",
+      "Resolving property-transfer disputes",
+      "Drafting and pursuing purchase, sale, mortgage, and lease/title contracts",
+    ],
+  },
+  {
+    id: "criminal",
+    title: "Criminal Cases",
+    items: [
+      "Fraud, theft, public intoxication, forgery, and use of forged documents",
+      "Assault and related criminal matters",
+      "Murder and defense in complex criminal cases",
+    ],
+  },
+  {
+    id: "family",
+    title: "Family Law Matters",
+    items: [
+      "Divorce and related matters",
+      "Mahriyeh (dower) claims",
+      "Child custody",
+      "Alimony and spousal rights",
+      "Joint financial and asset disputes",
+    ],
+  },
+  {
+    id: "inheritance",
+    title: "Inheritance and Wills",
+    items: [
+      "Obtaining inheritance certificates and inheritance tax matters",
+      "Resolving disputes among heirs and drafting partition agreements",
+      "Drafting wills",
+    ],
+  },
+  {
+    id: "contracts",
+    title: "Drafting Contracts",
+    items: [
+      "Purchase and sale, construction partnerships, employment and commercial contracts",
+      "Lease and mortgage contracts",
+      "Power-of-attorney and representation contracts",
+    ],
+  },
+],
+
 };
