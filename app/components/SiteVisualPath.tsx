@@ -8,8 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-
 import {
+  motion,
   useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
@@ -17,32 +17,25 @@ import {
   useSpring,
 } from "motion/react";
 
-type Point = {
-  x: number;
-  y: number;
-};
-
-type Rect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+type Point = { x: number; y: number };
+type Rect = { x: number; y: number; width: number; height: number };
 
 type PathData = {
   d: string;
   width: number;
   height: number;
   hiddenRect: Rect | null;
+  desktop: boolean;
 };
 
 type Table = {
   xs: number[];
   ys: number[];
-  rawYs: number[];
   ls: number[];
   total: number;
 };
+
+type Metrics = { top: number; height: number };
 
 const SELECTORS = {
   start: '[data-line-anchor="visual-start"]',
@@ -62,25 +55,13 @@ const CORNER_RADIUS = 24;
 const HEAD_START = 0.55;
 const HEAD_GAIN = 0.45;
 
-// حداقل تغییری که ارزش بازنقاشی دارد (به پیکسل)
-const MIN_DELTA = 0.25;
-
-/**
- * نوع درخشش خط روی دسکتاپ:
- *
- * "layered" : دو لایه‌ی نیمه‌شفاف پهن‌تر زیر خط (بدون filter؛ بسیار سبک‌تر)
- * "filter"  : drop-shadow اصلی (سنگین‌ترین حالت؛ ظاهر دقیقاً مثل قبل)
- * "none"    : بدون درخشش
- *
- * موبایل و تبلت (زیر ۱۰۲۴px) هیچ درخششی ندارند.
- */
-type GlowMode = "layered" | "filter" | "none";
-const GLOW_MODE = "layered" as GlowMode;
-
-const GLOW_LAYERS = [
-  { width: 12, opacity: 0.08 },
-  { width: 6, opacity: 0.16 },
-];
+const EMPTY: PathData = {
+  d: "",
+  width: 0,
+  height: 0,
+  hiddenRect: null,
+  desktop: true,
+};
 
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
@@ -112,17 +93,14 @@ function makeCurve(from: Point, to: Point) {
 
 /**
  * مسیر موبایل با پیچ‌های نرم.
+ * شکل مسیر دسکتاپ تغییری نمی‌کند.
  */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
   const drop = to.y - from.y;
   const dir = to.x >= from.x ? 1 : -1;
 
-  const r = Math.min(
-    CORNER_RADIUS,
-    Math.max(0, drop / 2),
-    run / 2
-  );
+  const r = Math.min(CORNER_RADIUS, Math.max(0, drop / 2), run / 2);
 
   if (run < 1 || drop < 1 || r < 1) {
     return `L ${to.x} ${to.y}`;
@@ -164,12 +142,37 @@ function samePath(a: PathData, b: PathData) {
     a.d === b.d &&
     a.width === b.width &&
     a.height === b.height &&
+    a.desktop === b.desktop &&
     sameRect
   );
 }
 
 /**
- * تبدیل مختصات عمودی به پیشرفت مسیر با جست‌وجوی دودویی.
+ * مستطیل بیرونی + سوراخ مستطیلی (با evenodd).
+ * جایگزین سبک mask در موبایل: نتیجه‌ی ظاهری همان است ولی بافر خارج از صفحه‌ی عظیم نمی‌سازد.
+ */
+function clipWithHole(width: number, height: number, hole: Rect) {
+  const { x, y, width: w, height: h } = hole;
+
+  return `M0 0H${width}V${height}H0Z M${x} ${y}H${x + w}V${y + h}H${x}Z`;
+}
+
+/** کارهای سنگین را در زمان بیکاری مرورگر اجرا می‌کند تا اسکرول گیر نکند */
+function runWhenIdle(cb: () => void) {
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(cb, { timeout: 250 });
+
+    return () => window.cancelIdleCallback(id);
+  }
+
+  const id = window.setTimeout(cb, 80);
+
+  return () => window.clearTimeout(id);
+}
+
+/**
+ * تبدیل مختصات عمودی به پیشرفت مسیر.
+ * جست‌وجوی دودویی انجام می‌شود؛ نیازی به پیمایش کل جدول نیست.
  */
 function lengthAt(table: Table, y: number) {
   const { ys, ls, total } = table;
@@ -185,11 +188,8 @@ function lengthAt(table: Table, y: number) {
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
 
-    if (ys[mid] <= y) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
+    if (ys[mid] <= y) lo = mid;
+    else hi = mid;
   }
 
   const span = ys[hi] - ys[lo];
@@ -199,20 +199,12 @@ function lengthAt(table: Table, y: number) {
 }
 
 /**
- * به دست آوردن موقعیت سر مسیر بدون فراخوانی SVG در هر فریم.
- *
- * rawYs برای حرکت روی مختصات واقعی منحنی موبایل استفاده می‌شود.
- * دسکتاپ از Y یکنواخت استفاده می‌کند.
+ * موقعیت سر مسیر را از جدول از پیش محاسبه‌شده به دست می‌آورد.
+ * برخلاف getPointAtLength، این تابع در هر فریم به SVG مراجعه نمی‌کند.
  */
-function pointAtProgress(
-  table: Table,
-  progress: number,
-  useRawY = false
-): Point {
-  const { xs, ys, rawYs, ls, total } = table;
+function pointAtProgress(table: Table, progress: number): Point {
+  const { xs, ys, ls, total } = table;
   const n = ls.length;
-
-  const pointYs = useRawY ? rawYs : ys;
 
   if (n === 0 || total <= 0) {
     return { x: 0, y: 0 };
@@ -221,11 +213,11 @@ function pointAtProgress(
   const targetLength = clamp(progress, 0, 1) * total;
 
   if (targetLength <= 0) {
-    return { x: xs[0], y: pointYs[0] };
+    return { x: xs[0], y: ys[0] };
   }
 
   if (targetLength >= total) {
-    return { x: xs[n - 1], y: pointYs[n - 1] };
+    return { x: xs[n - 1], y: ys[n - 1] };
   }
 
   let lo = 0;
@@ -234,11 +226,8 @@ function pointAtProgress(
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
 
-    if (ls[mid] <= targetLength) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
+    if (ls[mid] <= targetLength) lo = mid;
+    else hi = mid;
   }
 
   const span = ls[hi] - ls[lo];
@@ -246,27 +235,9 @@ function pointAtProgress(
 
   return {
     x: xs[lo] + (xs[hi] - xs[lo]) * t,
-    y: pointYs[lo] + (pointYs[hi] - pointYs[lo]) * t,
+    y: ys[lo] + (ys[hi] - ys[lo]) * t,
   };
 }
-
-/**
- * آخرین مقادیری که روی DOM نوشته شده‌اند.
- * با این کار از نوشتن‌های تکراری و بازنقاشی بی‌اثر جلوگیری می‌شود.
- */
-type DomState = {
-  offset: number;
-  headX: number;
-  headY: number;
-  headOpacity: string;
-};
-
-const freshDomState = (): DomState => ({
-  offset: NaN,
-  headX: NaN,
-  headY: NaN,
-  headOpacity: "",
-});
 
 export default function SiteVisualPath({
   children,
@@ -275,9 +246,6 @@ export default function SiteVisualPath({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<SVGPathElement>(null);
-  const pathRef = useRef<SVGPathElement>(null);
-  const glowARef = useRef<SVGPathElement>(null);
-  const glowBRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGGElement>(null);
   const tableRef = useRef<Table | null>(null);
 
@@ -285,47 +253,33 @@ export default function SiteVisualPath({
   const dotProgressRef = useRef<number[]>([]);
   const previousDotStatesRef = useRef<boolean[]>([]);
 
-  const domStateRef = useRef<DomState>(freshDomState());
-
-  // فقط موبایل: ارتفاع ثابت ویوپورت (مستقل از نوار آدرس)
-  const vhRef = useRef(0);
-  const vhWidthRef = useRef(0);
+  // --- فقط برای بهینه‌سازی موبایل ---
+  const desktopMqRef = useRef<MediaQueryList | null>(null);
+  const isDesktopRef = useRef(true);
+  const metricsRef = useRef<Metrics>({ top: 0, height: 0 });
+  const viewportHeightRef = useRef(0);
+  const headOpacityRef = useRef("0");
 
   const reduceMotion = useReducedMotion();
-  const clipId = `route-clip-${useId().replace(/:/g, "")}`;
+  const uid = useId().replace(/:/g, "");
+  const maskId = `route-mask-${uid}`;
+  const clipId = `route-clip-${uid}`;
 
-  const [pathData, setPathData] = useState<PathData>(EMPTY_PATH());
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [pathData, setPathData] = useState<PathData>(EMPTY);
 
   const { scrollY } = useScroll();
-
-  // دسکتاپ و موبایل هرکدام target مستقل دارند تا Spring بلااستفاده
-  // در هر فریم اجرا نشود.
   const target = useMotionValue(0);
-  const mobileTarget = useMotionValue(0);
 
-  /**
-   * دسکتاپ: Spring اصلی (بدون تغییر).
-   */
+  // تنظیمات اصلی حفظ شده‌اند.
   const progress = useSpring(target, {
-    stiffness: 220,
+    stiffness: 130,
     damping: 30,
     mass: 0.5,
     restDelta: 0.0005,
   });
 
   /**
-   * موبایل و تبلت: Spring مستقل با حرکت آرام‌تر (بدون تغییر).
-   */
-  const mobileProgress = useSpring(mobileTarget, {
-    stiffness: 100,
-    damping: 32,
-    mass: 0.6,
-    restDelta: 0.0005,
-  });
-
-  /**
-   * تغییر DOM فقط زمانی انجام می‌شود که وضعیت یک نقطه عوض شود.
+   * فقط زمانی DOM را تغییر می‌دهد که وضعیت یک نقطه عوض شود.
    */
   const syncDots = useCallback(
     (value: number) => {
@@ -349,28 +303,62 @@ export default function SiteVisualPath({
     [reduceMotion]
   );
 
-  /**
-   * اندازه‌گیری عناصر صفحه و ساخت مسیر SVG.
-   */
+  const update = useCallback(() => {
+    const container = containerRef.current;
+    const table = tableRef.current;
+
+    if (!container || !table) return;
+
+    let vh: number;
+    let top: number;
+    let height: number;
+
+    if (isDesktopRef.current) {
+      // دسکتاپ: دقیقاً مثل قبل
+      vh = window.innerHeight;
+
+      const rect = container.getBoundingClientRect();
+
+      top = rect.top;
+      height = rect.height;
+    } else {
+      // موبایل: بدون خواندن layout در هر فریم اسکرول (جلوگیری از reflow اجباری)
+      vh = viewportHeightRef.current || window.innerHeight;
+
+      const metrics = metricsRef.current;
+
+      top = metrics.top - scrollY.get();
+      height = metrics.height;
+    }
+
+    const scrollable = height - vh;
+
+    const p = scrollable > 0 ? clamp(-top / scrollable, 0, 1) : 1;
+
+    const headY = vh * (HEAD_START + HEAD_GAIN * p * p) - top;
+
+    target.set(lengthAt(table, headY));
+  }, [scrollY, target]);
+
   const measure = useCallback(() => {
     const container = containerRef.current;
-
     if (!container) return;
+
+    const mq = (desktopMqRef.current ??= window.matchMedia(DESKTOP_QUERY));
+    const isDesktop = mq.matches;
+
+    isDesktopRef.current = isDesktop;
+    viewportHeightRef.current = window.innerHeight;
 
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-    const desktop = window.matchMedia(DESKTOP_QUERY).matches;
 
-    // موبایل: ارتفاع ویوپورت فقط وقتی عرض عوض شود (چرخش صفحه) ثبت می‌شود.
-    // نوار آدرس مرورگر موبایل هنگام اسکرول ارتفاع را تغییر می‌دهد و اگر
-    // مستقیم خوانده شود، نوک خط مدام می‌پرد.
-    if (
-      !desktop &&
-      (!vhRef.current || vhWidthRef.current !== window.innerWidth)
-    ) {
-      vhRef.current = window.innerHeight;
-      vhWidthRef.current = window.innerWidth;
-    }
+    const containerRect = container.getBoundingClientRect();
+
+    metricsRef.current = {
+      top: containerRect.top + window.scrollY,
+      height: containerRect.height,
+    };
 
     const centerOf = (el: Element | null): Point | null => {
       if (!(el instanceof HTMLElement)) return null;
@@ -383,9 +371,7 @@ export default function SiteVisualPath({
       };
     };
 
-    const start = centerOf(
-      container.querySelector(SELECTORS.start)
-    );
+    const start = centerOf(container.querySelector(SELECTORS.start));
 
     const timelineStart = centerOf(
       container.querySelector(SELECTORS.timelineStart)
@@ -411,32 +397,25 @@ export default function SiteVisualPath({
     }
 
     const highlightPoints = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        SELECTORS.highlightPoints
-      )
+      container.querySelectorAll<HTMLElement>(SELECTORS.highlightPoints)
     )
       .sort(
         (a, b) =>
-          Number(a.dataset.linePathPoint) -
-          Number(b.dataset.linePathPoint)
+          Number(a.dataset.linePathPoint) - Number(b.dataset.linePathPoint)
       )
       .map((el) => centerOf(el))
-      .filter((point): point is Point => point !== null);
+      .filter((p): p is Point => p !== null);
 
     const firstHighlight =
       highlightPoints[0] ??
       centerOf(container.querySelector(SELECTORS.highlightStart));
 
     const dots = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        SELECTORS.timelineDots
-      )
+      container.querySelectorAll<HTMLElement>(SELECTORS.timelineDots)
     );
 
     dotsRef.current = dots;
     previousDotStatesRef.current = dots.map(() => false);
-
-    const containerRect = container.getBoundingClientRect();
 
     const dotYs = dots.map((dot) => {
       const rect = dot.getBoundingClientRect();
@@ -448,21 +427,18 @@ export default function SiteVisualPath({
       container.querySelectorAll(SELECTORS.meanderTop)
     )
       .map((el) => centerOf(el))
-      .filter((point): point is Point => point !== null);
+      .filter((p): p is Point => p !== null);
 
     const meanderBottoms = Array.from(
       container.querySelectorAll(SELECTORS.meanderBottom)
     )
       .map((el) => centerOf(el))
-      .filter((point): point is Point => point !== null);
+      .filter((p): p is Point => p !== null);
 
     let d = "";
 
-    /**
-     * مسیر موبایل و تبلت.
-     */
     if (
-      !desktop &&
+      !isDesktop &&
       start &&
       firstHighlight &&
       meanderTops.length > 0 &&
@@ -476,40 +452,21 @@ export default function SiteVisualPath({
       ];
 
       for (let i = 0; i <= lastIndex; i++) {
-        commands.push(
-          `L ${meanderBottoms[i].x} ${meanderBottoms[i].y}`
-        );
+        commands.push(`L ${meanderBottoms[i].x} ${meanderBottoms[i].y}`);
 
         if (i < lastIndex) {
-          commands.push(
-            makeStep(meanderBottoms[i], meanderTops[i + 1])
-          );
+          commands.push(makeStep(meanderBottoms[i], meanderTops[i + 1]));
         }
       }
 
-      commands.push(
-        makeCurve(meanderBottoms[lastIndex], firstHighlight)
-      );
+      commands.push(makeCurve(meanderBottoms[lastIndex], firstHighlight));
 
       for (let i = 1; i < highlightPoints.length; i++) {
-        commands.push(
-          makeCurve(
-            highlightPoints[i - 1],
-            highlightPoints[i]
-          )
-        );
+        commands.push(makeCurve(highlightPoints[i - 1], highlightPoints[i]));
       }
 
       d = commands.join(" ");
-    } else if (
-      start &&
-      timelineStart &&
-      timelineEnd &&
-      firstHighlight
-    ) {
-      /**
-       * مسیر دسکتاپ؛ ساختار قبلی حفظ شده است.
-       */
+    } else if (start && timelineStart && timelineEnd && firstHighlight) {
       const verticalEnd = {
         x: timelineStart.x,
         y: timelineEnd.y,
@@ -523,12 +480,7 @@ export default function SiteVisualPath({
       ];
 
       for (let i = 1; i < highlightPoints.length; i++) {
-        commands.push(
-          makeCurve(
-            highlightPoints[i - 1],
-            highlightPoints[i]
-          )
-        );
+        commands.push(makeCurve(highlightPoints[i - 1], highlightPoints[i]));
       }
 
       d = commands.join(" ");
@@ -539,51 +491,24 @@ export default function SiteVisualPath({
       width,
       height,
       hiddenRect,
+      desktop: isDesktop,
     };
 
-    setPathData((prev) =>
-      samePath(prev, next) ? prev : next
-    );
+    setPathData((prev) => (samePath(prev, next) ? prev : next));
 
     if (tableRef.current) {
       dotProgressRef.current = dotYs.map((y) =>
         lengthAt(tableRef.current!, y)
       );
 
-      syncDots(
-        desktop ? progress.get() : mobileProgress.get()
-      );
+      syncDots(progress.get());
     } else {
       dotProgressRef.current = [];
     }
-  }, [progress, mobileProgress, syncDots]);
+  }, [progress, syncDots]);
 
-  /**
-   * تشخیص breakpoint؛ بدون دسترسی به window هنگام SSR.
-   */
-  useLayoutEffect(() => {
-    const media = window.matchMedia(DESKTOP_QUERY);
-
-    const updateBreakpoint = () => {
-      setIsDesktop((previous) =>
-        previous === media.matches ? previous : media.matches
-      );
-    };
-
-    updateBreakpoint();
-    media.addEventListener("change", updateBreakpoint);
-
-    return () => {
-      media.removeEventListener("change", updateBreakpoint);
-    };
-  }, []);
-
-  /**
-   * مشاهده تغییر ابعاد صفحه و عناصر.
-   */
   useLayoutEffect(() => {
     const container = containerRef.current;
-
     if (!container) return;
 
     let frame = 0;
@@ -594,16 +519,20 @@ export default function SiteVisualPath({
       frame = requestAnimationFrame(measure);
     };
 
-    // موبایل: باز و بسته شدن نوار آدرس هنگام اسکرول رویداد resize
-    // می‌فرستد که فقط ارتفاع را عوض می‌کند. اندازه‌گیری و ساخت دوباره‌ی
-    // جدول مسیر برای آن لازم نیست. تغییر واقعی چیدمان را ResizeObserver
-    // می‌گیرد. دسکتاپ مثل قبل عمل می‌کند.
     const onResize = () => {
-      const desktop = window.matchMedia(DESKTOP_QUERY).matches;
+      const width = window.innerWidth;
+      const widthChanged = width !== lastWidth;
 
-      if (!desktop && window.innerWidth === lastWidth) return;
+      lastWidth = width;
 
-      lastWidth = window.innerWidth;
+      // موبایل: بالا/پایین رفتن نوار آدرس هنگام اسکرول فقط ارتفاع دید را عوض می‌کند.
+      // اندازه‌گیری مجدد کل صفحه لازم نیست و باعث گیر کردن اسکرول می‌شد.
+      if (!isDesktopRef.current && !widthChanged) {
+        viewportHeightRef.current = window.innerHeight;
+        update();
+        return;
+      }
+
       schedule();
     };
 
@@ -628,7 +557,6 @@ export default function SiteVisualPath({
 
     window.addEventListener("resize", onResize);
     window.addEventListener("load", schedule);
-
     document.fonts?.ready.then(schedule);
 
     return () => {
@@ -642,133 +570,15 @@ export default function SiteVisualPath({
       dotProgressRef.current = [];
       previousDotStatesRef.current = [];
     };
-  }, [measure]);
-
-  /**
-   * محاسبه موقعیت هدف خط براساس اسکرول.
-   * دسکتاپ و موبایل هرکدام به target خودشان می‌نویسند.
-   */
-  const update = useCallback(() => {
-    const container = containerRef.current;
-    const table = tableRef.current;
-
-    if (!container || !table) return;
-
-    // موبایل: ارتفاع ثابت (نه innerHeight متغیر)
-    const vh = isDesktop
-      ? window.innerHeight
-      : vhRef.current || window.innerHeight;
-
-    const rect = container.getBoundingClientRect();
-    const scrollable = rect.height - vh;
-
-    const p =
-      scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
-
-    const headY =
-      vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
-
-    const value = lengthAt(table, headY);
-
-    if (isDesktop) {
-      target.set(value);
-    } else {
-      mobileTarget.set(value);
-    }
-  }, [isDesktop, target, mobileTarget]);
+  }, [measure, update]);
 
   useMotionValueEvent(scrollY, "change", update);
 
   /**
-   * رسم مسیر برای هر دو حالت.
-   * فقط وقتی مقدار واقعاً تغییر کرده به DOM نوشته می‌شود تا
-   * بازنقاشی‌های بی‌اثر حذف شوند. React در هر فریم render نمی‌شود.
-   */
-  const applyProgress = useCallback(
-    (value: number) => {
-      const table = tableRef.current;
-
-      if (!table) return;
-
-      const state = domStateRef.current;
-      const path = pathRef.current;
-
-      if (path) {
-        const offset = reduceMotion
-          ? 0
-          : table.total * (1 - clamp(value, 0, 1));
-
-        const changed =
-          offset !== state.offset &&
-          (Number.isNaN(state.offset) ||
-            Math.abs(offset - state.offset) >= MIN_DELTA ||
-            offset === 0 ||
-            offset === table.total);
-
-        if (changed) {
-          state.offset = offset;
-
-          const v = offset.toFixed(2);
-
-          path.style.strokeDashoffset = v;
-
-          if (glowARef.current) {
-            glowARef.current.style.strokeDashoffset = v;
-          }
-
-          if (glowBRef.current) {
-            glowBRef.current.style.strokeDashoffset = v;
-          }
-        }
-      }
-
-      if (!reduceMotion) {
-        const head = headRef.current;
-
-        if (head) {
-          // موبایل روی منحنی واقعی حرکت می‌کند، دسکتاپ مثل قبل
-          const point = pointAtProgress(table, value, !isDesktop);
-
-          if (
-            Number.isNaN(state.headX) ||
-            Math.abs(point.x - state.headX) >= MIN_DELTA ||
-            Math.abs(point.y - state.headY) >= MIN_DELTA
-          ) {
-            state.headX = point.x;
-            state.headY = point.y;
-
-            head.setAttribute(
-              "transform",
-              `translate(${point.x.toFixed(1)} ${point.y.toFixed(1)})`
-            );
-          }
-
-          const opacity =
-            value > 0.002 && value < 0.998 ? "1" : "0";
-
-          if (state.headOpacity !== opacity) {
-            state.headOpacity = opacity;
-            head.style.opacity = opacity;
-          }
-        }
-      }
-
-      syncDots(value);
-    },
-    [isDesktop, reduceMotion, syncDots]
-  );
-
-  useMotionValueEvent(progress, "change", (value) => {
-    if (isDesktop) applyProgress(value);
-  });
-
-  useMotionValueEvent(mobileProgress, "change", (value) => {
-    if (!isDesktop) applyProgress(value);
-  });
-
-  /**
-   * پیش‌محاسبه جدول مختصات مسیر.
-   * getPointAtLength فقط زمان ایجاد یا تغییر مسیر اجرا می‌شود.
+   * ساخت جدول مختصات مسیر.
+   * دسکتاپ: مثل قبل و همان لحظه.
+   * موبایل: اولین بار فوری، دفعات بعد در زمان بیکاری (تا وسط اسکرول کار سنگین اجرا نشود)
+   * و با نمونه‌برداری کم‌تراکم‌تر.
    */
   useLayoutEffect(() => {
     const path = trackRef.current;
@@ -778,115 +588,80 @@ export default function SiteVisualPath({
       return;
     }
 
-    const total = path.getTotalLength();
-    const steps = clamp(Math.ceil(total / 6), 120, 1500);
-
-    const xs: number[] = [];
-    const ys: number[] = [];
-    const rawYs: number[] = [];
-    const ls: number[] = [];
-
-    for (let i = 0; i <= steps; i++) {
-      const length = (total * i) / steps;
-      const point = path.getPointAtLength(length);
-
-      xs.push(point.x);
-
-      // Y یکنواخت برای محاسبه پیشرفت و حفظ رفتار دسکتاپ
-      ys.push(
-        i === 0
-          ? point.y
-          : Math.max(point.y, ys[i - 1])
-      );
-
-      // Y واقعی برای حرکت سر خط روی پیچ‌های موبایل
-      rawYs.push(point.y);
-
-      ls.push(length);
-    }
-
-    tableRef.current = {
-      xs,
-      ys,
-      rawYs,
-      ls,
-      total,
-    };
-
-    // مسیر یا المان عوض شده؛ کش مقادیر نوشته‌شده نامعتبر است.
-    domStateRef.current = freshDomState();
-
-    /**
-     * مقداردهی اولیه‌ی مسیرها (خط اصلی و لایه‌های درخشش).
-     */
-    const current = isDesktop
-      ? progress.get()
-      : mobileProgress.get();
-
-    const offset = reduceMotion
-      ? 0
-      : total * (1 - clamp(current, 0, 1));
-
-    const init = (el: SVGPathElement | null, opacity: number) => {
+    const build = () => {
+      const el = trackRef.current;
       if (!el) return;
 
-      el.style.strokeDasharray = String(total);
-      el.style.strokeDashoffset = String(offset);
-      el.style.strokeOpacity = String(opacity);
+      const total = el.getTotalLength();
+      const divisor = pathData.desktop ? 6 : 10;
+      const steps = clamp(Math.ceil(total / divisor), 120, 1500);
+
+      const xs: number[] = [];
+      const ys: number[] = [];
+      const ls: number[] = [];
+
+      for (let i = 0; i <= steps; i++) {
+        const length = (total * i) / steps;
+        const point = el.getPointAtLength(length);
+
+        xs.push(point.x);
+
+        // حفظ رفتار قبلی برای محاسبه پیشرفت بر اساس محور Y
+        ys.push(i === 0 ? point.y : Math.max(point.y, ys[i - 1]));
+
+        ls.push(length);
+      }
+
+      tableRef.current = { xs, ys, ls, total };
+
+      const container = containerRef.current;
+
+      if (container) {
+        const containerRect = container.getBoundingClientRect();
+
+        dotProgressRef.current = dotsRef.current.map((dot) => {
+          const rect = dot.getBoundingClientRect();
+          const y = rect.top + rect.height / 2 - containerRect.top;
+
+          return lengthAt(tableRef.current!, y);
+        });
+      }
+
+      update();
+      syncDots(progress.get());
     };
 
-    init(pathRef.current, 1);
-    init(glowARef.current, GLOW_LAYERS[0].opacity);
-    init(glowBRef.current, GLOW_LAYERS[1].opacity);
-
-    /**
-     * محاسبه پیشرفت نقاط تایم‌لاین.
-     */
-    const container = containerRef.current;
-
-    if (container) {
-      const containerRect = container.getBoundingClientRect();
-
-      dotProgressRef.current = dotsRef.current.map((dot) => {
-        const rect = dot.getBoundingClientRect();
-        const y =
-          rect.top + rect.height / 2 - containerRect.top;
-
-        return lengthAt(tableRef.current!, y);
-      });
+    if (pathData.desktop || tableRef.current === null) {
+      build();
+      return;
     }
 
-    update();
-    applyProgress(current);
-  }, [
-    pathData.d,
-    isDesktop,
-    reduceMotion,
-    progress,
-    mobileProgress,
-    update,
-    applyProgress,
-  ]);
+    return runWhenIdle(build);
+  }, [pathData.d, pathData.desktop, progress, syncDots, update]);
 
   /**
-   * clipPath با قانون evenodd به‌جای mask:
-   * خروجی بصری یکسان است ولی سطح رندر آفلاین به اندازه‌ی کل صفحه
-   * ساخته نمی‌شود.
+   * دیگر در هر فریم getPointAtLength فراخوانی نمی‌شود.
+   * موقعیت سر مسیر از جدول مختصات محاسبه می‌شود.
    */
-  const clipD = (() => {
-    const { width: w, height: h, hiddenRect: r } = pathData;
+  useMotionValueEvent(progress, "change", (value) => {
+    const head = headRef.current;
+    const table = tableRef.current;
 
-    let d = `M0 0H${w}V${h}H0Z`;
+    if (head && table) {
+      const point = pointAtProgress(table, value);
 
-    if (r) {
-      d += ` M${r.x} ${r.y}H${r.x + r.width}V${r.y + r.height}H${r.x}Z`;
+      head.setAttribute("transform", `translate(${point.x} ${point.y})`);
+
+      const nextOpacity = value > 0.002 && value < 0.998 ? "1" : "0";
+
+      if (headOpacityRef.current !== nextOpacity) {
+        headOpacityRef.current = nextOpacity;
+        head.style.opacity = nextOpacity;
+      }
     }
 
-    return d;
-  })();
-
-  const showLayeredGlow = isDesktop && GLOW_MODE === "layered";
-  const useFilterGlow = isDesktop && GLOW_MODE === "filter";
+    syncDots(value);
+  });
 
   return (
     <div ref={containerRef} className="relative">
@@ -898,18 +673,59 @@ export default function SiteVisualPath({
           className="pointer-events-none absolute inset-0 z-[5] h-full w-full overflow-visible"
           viewBox={`0 0 ${pathData.width} ${pathData.height}`}
           preserveAspectRatio="none"
-          // لایه‌ی جداگانه تا بازنقاشی خط، متن‌ها و عکس‌های زیرش
-          // را دوباره رسم نکند.
-          style={{ willChange: "transform" }}
         >
           <defs>
-            <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
-              <path clipRule="evenodd" d={clipD} />
-            </clipPath>
+            {pathData.desktop ? (
+              <mask
+                id={maskId}
+                maskUnits="userSpaceOnUse"
+                x="0"
+                y="0"
+                width={pathData.width}
+                height={pathData.height}
+              >
+                <rect
+                  x="0"
+                  y="0"
+                  width={pathData.width}
+                  height={pathData.height}
+                  fill="white"
+                />
+
+                {pathData.hiddenRect && (
+                  <rect
+                    x={pathData.hiddenRect.x}
+                    y={pathData.hiddenRect.y}
+                    width={pathData.hiddenRect.width}
+                    height={pathData.hiddenRect.height}
+                    fill="black"
+                  />
+                )}
+              </mask>
+            ) : (
+              pathData.hiddenRect && (
+                <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
+                  <path
+                    clipRule="evenodd"
+                    d={clipWithHole(
+                      pathData.width,
+                      pathData.height,
+                      pathData.hiddenRect
+                    )}
+                  />
+                </clipPath>
+              )
+            )}
           </defs>
 
-          <g clipPath={`url(#${clipId})`}>
-            {/* مسیر زمینه */}
+          <g
+            mask={pathData.desktop ? `url(#${maskId})` : undefined}
+            clipPath={
+              !pathData.desktop && pathData.hiddenRect
+                ? `url(#${clipId})`
+                : undefined
+            }
+          >
             <path
               ref={trackRef}
               d={pathData.d}
@@ -923,47 +739,16 @@ export default function SiteVisualPath({
               }}
             />
 
-            {/* درخشش دسکتاپ: لایه‌های پهن‌تر زیر خط اصلی، بدون filter */}
-            {showLayeredGlow &&
-              GLOW_LAYERS.map((layer, i) => (
-                <path
-                  key={layer.width}
-                  ref={i === 0 ? glowARef : glowBRef}
-                  d={pathData.d}
-                  fill="none"
-                  strokeWidth={layer.width}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    stroke: "var(--brand-accent)",
-                    strokeDasharray: 1,
-                    strokeDashoffset: 1,
-                    strokeOpacity: 0,
-                  }}
-                />
-              ))}
-
-            {/*
-             * خط پیشرفت: رسم تدریجی با strokeDashoffset
-             * (دسکتاپ با Spring خودش، موبایل با Spring خودش).
-             */}
-            <path
-              ref={pathRef}
+            <motion.path
               d={pathData.d}
               fill="none"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={
-                useFilterGlow
-                  ? "[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
-                  : undefined
-              }
+              className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
               style={{
+                pathLength: reduceMotion ? 1 : progress,
                 stroke: "var(--brand-accent)",
-                strokeDasharray: 1,
-                strokeDashoffset: 1,
-                strokeOpacity: 0,
               }}
             />
 
@@ -977,12 +762,7 @@ export default function SiteVisualPath({
                   }}
                 />
 
-                <circle
-                  r="4"
-                  style={{
-                    fill: "var(--brand-accent)",
-                  }}
-                />
+                <circle r="4" style={{ fill: "var(--brand-accent)" }} />
               </g>
             )}
           </g>
@@ -990,13 +770,4 @@ export default function SiteVisualPath({
       )}
     </div>
   );
-}
-
-function EMPTY_PATH(): PathData {
-  return {
-    d: "",
-    width: 0,
-    height: 0,
-    hiddenRect: null,
-  };
 }
