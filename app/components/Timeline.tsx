@@ -13,16 +13,13 @@ ScrollTrigger.config({ ignoreMobileResize: true });
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace("#", "");
-
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
+/**
+ * دایره‌ی سال.
+ * پر شدن آن دیگر با ScrollTrigger انجام نمی‌شود؛ کامپوننت مسیر (SiteVisualPath)
+ * متغیر --line-fill (۰ تا ۱) را دقیقاً هم‌پای نوک خط روی همین عنصر می‌نویسد.
+ * همه‌ی لایه‌ها فقط با opacity/transform تغییر می‌کنند (سبک برای کامپوزیتور)،
+ * و عمداً هیچ transition ای روی آن‌ها نیست تا از خط عقب نمانند.
+ */
 function Dot({
   label,
   position = "mid",
@@ -46,9 +43,45 @@ function Dot({
 
   return (
     <div
+      data-timeline-dot
       className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-light shadow-sm lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
-      {label}
+      {/* هاله‌ی دسکتاپ (قبلاً box-shadow متحرک بود) */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 hidden rounded-full shadow-[0_0_0_8px_color-mix(in_srgb,var(--brand-accent)_15%,transparent),0_0_40px_color-mix(in_srgb,var(--brand-accent)_35%,transparent)] lg:block"
+        style={{ opacity: "var(--line-fill, 0)" }}
+      />
+
+      {/* پرشدن دایره: رنگ + بوردر */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-px rounded-full border border-accent bg-accent"
+        style={{
+          opacity: "var(--line-fill, 0)",
+          transform: "scale(calc(0.88 + 0.12 * var(--line-fill, 0)))",
+        }}
+      />
+
+      {/* متن اصلی؛ با پر شدن محو می‌شود */}
+      <span
+        className="relative"
+        style={{ opacity: "calc(1 - var(--line-fill, 0))" }}
+      >
+        {label}
+      </span>
+
+      {/* متن روی رنگ accent؛ با پر شدن ظاهر می‌شود */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        style={{
+          color: "var(--brand-on-accent, #061F38)",
+          opacity: "var(--line-fill, 0)",
+        }}
+      >
+        {label}
+      </span>
     </div>
   );
 }
@@ -68,19 +101,13 @@ export default function Timeline() {
 
     if (reduceMotion) return;
 
-    // خواندن رنگ‌ها از توکن‌های globals.css
-    const css = getComputedStyle(document.documentElement);
-
-    const accent =
-      css.getPropertyValue("--brand-accent").trim() || "#C5AA76";
-
-    const onAccent =
-      css.getPropertyValue("--brand-on-accent").trim() || "#061F38";
-
     /*
      * GSAP بر اساس breakpoint دو مجموعه انیمیشن جدا می‌سازد.
      * تغییر breakpoint به‌صورت خودکار انیمیشن قبلی را پاک می‌کند
      * و انیمیشن مناسب همان اندازه صفحه را فعال می‌کند.
+     *
+     * توجه: انیمیشن دایره‌ها از اینجا حذف شده و به کامپوننت مسیر منتقل شده،
+     * تا پر شدن دایره دقیقاً با رسیدن نوک خط هماهنگ باشد.
      */
     const mm = gsap.matchMedia(section);
 
@@ -101,32 +128,6 @@ export default function Timeline() {
           };
 
         if (!isMobile || shouldReduceMotion) return;
-
-        // انیمیشن دایره‌های سال: بدون box-shadow بزرگ و متحرک
-        gsap.utils
-          .toArray<HTMLElement>(".timeline-dot")
-          .forEach((dot) => {
-            gsap.fromTo(
-              dot,
-              {
-                scale: 0.96,
-              },
-              {
-                scale: 1,
-                backgroundColor: accent,
-                borderColor: accent,
-                color: onAccent,
-                ease: "none",
-                force3D: true,
-                scrollTrigger: {
-                  trigger: dot,
-                  start: "center 66%",
-                  end: "center 56%",
-                  scrub: true,
-                },
-              }
-            );
-          });
 
         // متن‌ها: حفظ حرکت و opacity، حذف blur فقط در موبایل
         gsap.utils
@@ -151,7 +152,7 @@ export default function Timeline() {
 
     /**
      * دسکتاپ:
-     * تنظیمات قبلی حفظ شده‌اند؛ از جمله Blur و سایه‌ی متحرک.
+     * تنظیمات قبلی متن حفظ شده‌اند؛ از جمله Blur.
      */
     mm.add(
       {
@@ -166,36 +167,6 @@ export default function Timeline() {
           };
 
         if (!isDesktop || shouldReduceMotion) return;
-
-        gsap.utils
-          .toArray<HTMLElement>(".timeline-dot")
-          .forEach((dot) => {
-            gsap.fromTo(
-              dot,
-              {
-                boxShadow: `0 0 0 0 ${hexToRgba(
-                  accent,
-                  0
-                )}, 0 0 0 0 ${hexToRgba(accent, 0)}`,
-              },
-              {
-                backgroundColor: accent,
-                borderColor: accent,
-                color: onAccent,
-                boxShadow: `0 0 0 8px ${hexToRgba(
-                  accent,
-                  0.15
-                )}, 0 0 40px ${hexToRgba(accent, 0.35)}`,
-                ease: "none",
-                scrollTrigger: {
-                  trigger: dot,
-                  start: "center 66%",
-                  end: "center 56%",
-                  scrub: true,
-                },
-              }
-            );
-          });
 
         gsap.utils
           .toArray<HTMLElement>(".timeline-content")
