@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
@@ -45,42 +44,79 @@ export default function Timeline() {
   const sectionRef = useRef<HTMLElement>(null);
 
   // موبایل: طلایی شدن تدریجی دایره‌ها هنگام اسکرول
-  // بدون فعال کردن انیمیشن حرکت خط
+  // با IntersectionObserver (بدون listener اسکرول و بدون getBoundingClientRect)
+  // و بدون فعال کردن انیمیشن حرکت خط
   useEffect(() => {
     const section = sectionRef.current;
 
     if (!section) return;
 
     const media = window.matchMedia("(max-width: 1023px)");
+    let observer: IntersectionObserver | null = null;
+    let lastWidth = window.innerWidth;
 
-    const updateDots = () => {
+    const teardown = () => {
+      observer?.disconnect();
+      observer = null;
+    };
+
+    const setup = () => {
+      teardown();
+
       if (!media.matches) return;
 
-      const triggerY = window.innerHeight * 0.66;
+      // خط محرک روی ۶۶٪ ارتفاع صفحه است.
+      // ۳۲px = نصف ارتفاع دایره‌ی موبایل (h-16)، تا لحظه‌ی طلایی شدن
+      // دقیقاً وقتی باشد که مرکز دایره به خط می‌رسد.
+      const bottomMargin = window.innerHeight * 0.34 + 32;
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            const el = entry.target as HTMLElement;
+            const rootTop = entry.rootBounds?.top ?? 0;
+
+            // یا داخل ناحیه‌ی بالای خط محرک است،
+            // یا کاملاً از بالای صفحه رد شده است.
+            const passed =
+              entry.isIntersecting ||
+              entry.boundingClientRect.top < rootTop;
+
+            const next = String(passed);
+
+            if (el.dataset.linePassed !== next) {
+              el.dataset.linePassed = next;
+            }
+          }
+        },
+        {
+          rootMargin: `0px 0px -${bottomMargin}px 0px`,
+        }
+      );
 
       section
         .querySelectorAll<HTMLElement>("[data-timeline-dot]")
-        .forEach((dot) => {
-          const rect = dot.getBoundingClientRect();
-          const centerY = rect.top + rect.height / 2;
-
-          dot.dataset.linePassed = String(centerY <= triggerY);
-        });
+        .forEach((dot) => observer!.observe(dot));
     };
 
-    updateDots();
+    // فقط با تغییر عرض دوباره ساخته می‌شود تا باز و بسته شدن
+    // نوار آدرس مرورگر موبایل باعث ساخت مجدد observer نشود.
+    const handleResize = () => {
+      if (window.innerWidth === lastWidth) return;
 
-    window.addEventListener("scroll", updateDots, {
-      passive: true,
-    });
+      lastWidth = window.innerWidth;
+      setup();
+    };
 
-    window.addEventListener("resize", updateDots);
-    media.addEventListener("change", updateDots);
+    setup();
+
+    window.addEventListener("resize", handleResize);
+    media.addEventListener("change", setup);
 
     return () => {
-      window.removeEventListener("scroll", updateDots);
-      window.removeEventListener("resize", updateDots);
-      media.removeEventListener("change", updateDots);
+      teardown();
+      window.removeEventListener("resize", handleResize);
+      media.removeEventListener("change", setup);
     };
   }, [history.length]);
 
