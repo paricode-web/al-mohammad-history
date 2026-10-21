@@ -3,6 +3,7 @@
 
 import {
   useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -34,6 +35,10 @@ type Table = {
   total: number;
 };
 
+type ElementRef<T> = {
+  current: T | null;
+};
+
 const SELECTORS = {
   start: '[data-line-anchor="visual-start"]',
   timelineStart: '[data-line-anchor="timeline-start"]',
@@ -62,15 +67,6 @@ const EMPTY: PathData = {
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 function layoutBox(el: HTMLElement, root: HTMLElement) {
   let x = 0;
   let y = 0;
@@ -96,10 +92,6 @@ function makeCurve(from: Point, to: Point) {
   return `C ${from.x} ${middleY}, ${to.x} ${middleY}, ${to.x} ${to.y}`;
 }
 
-/**
- * مسیر مارپیچی موبایل با پیچ‌های نرم‌تر.
- * مسیر دسکتاپ از این تابع استفاده نمی‌کند.
- */
 function makeStep(from: Point, to: Point) {
   const run = Math.abs(to.x - from.x);
   const drop = to.y - from.y;
@@ -179,13 +171,19 @@ function lengthAt(table: Table, y: number) {
   return (ls[lo] + (ls[hi] - ls[lo]) * k) / total;
 }
 
-export default function SiteVisualPath({
-  children,
+/**
+ * این کامپوننت فقط در دسکتاپ mount می‌شود.
+ * تمام منطق اسکرول، حرکت خط و نقطه‌ی متحرک در همین بخش است.
+ */
+function DesktopPathAnimation({
+  d,
+  containerRef,
+  trackRef,
 }: {
-  children: ReactNode;
+  d: string;
+  containerRef: ElementRef<HTMLDivElement>;
+  trackRef: ElementRef<SVGPathElement>;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<SVGPathElement>(null);
   const headRef = useRef<SVGGElement>(null);
   const tableRef = useRef<Table | null>(null);
 
@@ -194,14 +192,9 @@ export default function SiteVisualPath({
   const previousDotStatesRef = useRef<boolean[]>([]);
 
   const reduceMotion = useReducedMotion();
-  const maskId = `route-mask-${useId().replace(/:/g, "")}`;
-
-  const [pathData, setPathData] = useState<PathData>(EMPTY);
-
   const { scrollY } = useScroll();
   const target = useMotionValue(0);
 
-  // تنظیمات اصلی حرکت حفظ شده‌اند.
   const progress = useSpring(target, {
     stiffness: 130,
     damping: 30,
@@ -209,10 +202,6 @@ export default function SiteVisualPath({
     restDelta: 0.0005,
   });
 
-  /**
-   * بدون GSAP و بدون box-shadow متحرک:
-   * وضعیت هر دایره فقط زمانی عوض می‌شود که خط از آن عبور کند.
-   */
   const syncDots = useCallback(
     (value: number) => {
       const dots = dotsRef.current;
@@ -220,22 +209,174 @@ export default function SiteVisualPath({
       const previous = previousDotStatesRef.current;
 
       for (let i = 0; i < dots.length; i++) {
-        const dot = dots[i];
         const start = starts[i];
 
         if (start === undefined) continue;
 
-        const passed = reduceMotion || value >= start;
+        const passed = value >= start;
 
-        // از نوشتن DOM در هر فریم جلوگیری می‌کنیم.
         if (previous[i] === passed) continue;
 
         previous[i] = passed;
-        dot.dataset.linePassed = String(passed);
+        dots[i].dataset.linePassed = String(passed);
       }
     },
     [reduceMotion]
   );
+
+  const update = useCallback(() => {
+    const container = containerRef.current;
+    const table = tableRef.current;
+
+    if (!container || !table) return;
+
+    const vh = window.innerHeight;
+    const rect = container.getBoundingClientRect();
+    const scrollable = rect.height - vh;
+
+    const p =
+      scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
+
+    const headY =
+      vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
+
+    target.set(lengthAt(table, headY));
+  }, [containerRef, target]);
+
+  useMotionValueEvent(scrollY, "change", update);
+
+  useLayoutEffect(() => {
+    const path = trackRef.current;
+    const container = containerRef.current;
+
+    if (!path || !container || !d) {
+      tableRef.current = null;
+      return;
+    }
+
+    const total = path.getTotalLength();
+    const steps = clamp(Math.ceil(total / 6), 120, 1500);
+
+    const ys: number[] = [];
+    const ls: number[] = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const length = (total * i) / steps;
+      const point = path.getPointAtLength(length);
+
+      ys.push(
+        i === 0
+          ? point.y
+          : Math.max(point.y, ys[i - 1])
+      );
+
+      ls.push(length);
+    }
+
+    tableRef.current = { ys, ls, total };
+
+    const containerRect = container.getBoundingClientRect();
+
+    dotsRef.current = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        SELECTORS.timelineDots
+      )
+    );
+
+    previousDotStatesRef.current = dotsRef.current.map(() => false);
+
+    dotProgressRef.current = dotsRef.current.map((dot) => {
+      const rect = dot.getBoundingClientRect();
+      const y =
+        rect.top + rect.height / 2 - containerRect.top;
+
+      return lengthAt(tableRef.current!, y);
+    });
+
+    update();
+    syncDots(progress.get());
+  }, [
+    d,
+    containerRef,
+    trackRef,
+    progress,
+    syncDots,
+    update,
+  ]);
+
+  useMotionValueEvent(progress, "change", (value) => {
+    const path = trackRef.current;
+    const head = headRef.current;
+    const table = tableRef.current;
+
+    if (path && head && table) {
+      const point = path.getPointAtLength(
+        clamp(value, 0, 1) * table.total
+      );
+
+      head.setAttribute(
+        "transform",
+        `translate(${point.x} ${point.y})`
+      );
+
+      head.style.opacity =
+        value > 0.002 && value < 0.998 ? "1" : "0";
+    }
+
+    syncDots(value);
+  });
+
+  return (
+    <>
+      <motion.path
+        d={d}
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="hidden lg:block md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
+        style={{
+          pathLength: reduceMotion ? 1 : progress,
+          stroke: "var(--brand-accent)",
+        }}
+      />
+
+      {!reduceMotion && (
+        <g
+          ref={headRef}
+          className="hidden lg:block"
+          style={{ opacity: 0 }}
+        >
+          <circle
+            r="9"
+            style={{
+              fill: "var(--brand-accent)",
+              fillOpacity: 0.18,
+            }}
+          />
+
+          <circle
+            r="4"
+            style={{ fill: "var(--brand-accent)" }}
+          />
+        </g>
+      )}
+    </>
+  );
+}
+
+export default function SiteVisualPath({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<SVGPathElement>(null);
+
+  const maskId = `route-mask-${useId().replace(/:/g, "")}`;
+
+  const [pathData, setPathData] = useState<PathData>(EMPTY);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -243,7 +384,7 @@ export default function SiteVisualPath({
 
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-    const isDesktop = window.matchMedia(DESKTOP_QUERY).matches;
+    const desktop = window.matchMedia(DESKTOP_QUERY).matches;
 
     const centerOf = (el: Element | null): Point | null => {
       if (!(el instanceof HTMLElement)) return null;
@@ -300,23 +441,6 @@ export default function SiteVisualPath({
       highlightPoints[0] ??
       centerOf(container.querySelector(SELECTORS.highlightStart));
 
-    const dots = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        SELECTORS.timelineDots
-      )
-    );
-
-    dotsRef.current = dots;
-    previousDotStatesRef.current = dots.map(() => false);
-
-    const containerRect = container.getBoundingClientRect();
-
-    const dotYs = dots.map((dot) => {
-      const rect = dot.getBoundingClientRect();
-
-      return rect.top + rect.height / 2 - containerRect.top;
-    });
-
     const meanderTops = Array.from(
       container.querySelectorAll(SELECTORS.meanderTop)
     )
@@ -332,7 +456,7 @@ export default function SiteVisualPath({
     let d = "";
 
     if (
-      !isDesktop &&
+      !desktop &&
       start &&
       firstHighlight &&
       meanderTops.length > 0 &&
@@ -377,7 +501,7 @@ export default function SiteVisualPath({
       timelineEnd &&
       firstHighlight
     ) {
-      // شاخه‌ی دسکتاپ حفظ شده است.
+      // هندسه‌ی مسیر دسکتاپ بدون تغییر حفظ شده است.
       const verticalEnd = {
         x: timelineStart.x,
         y: timelineEnd.y,
@@ -412,17 +536,23 @@ export default function SiteVisualPath({
     setPathData((prev) =>
       samePath(prev, next) ? prev : next
     );
+  }, []);
 
-    if (tableRef.current) {
-      dotProgressRef.current = dotYs.map((y) =>
-        lengthAt(tableRef.current!, y)
-      );
+  useEffect(() => {
+    const media = window.matchMedia(DESKTOP_QUERY);
 
-      syncDots(progress.get());
-    } else {
-      dotProgressRef.current = [];
-    }
-  }, [progress, syncDots]);
+    const handleChange = () => {
+      setIsDesktop(media.matches);
+      measure();
+    };
+
+    handleChange();
+    media.addEventListener("change", handleChange);
+
+    return () => {
+      media.removeEventListener("change", handleChange);
+    };
+  }, [measure]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -438,7 +568,6 @@ export default function SiteVisualPath({
     measure();
 
     const observer = new ResizeObserver(schedule);
-
     observer.observe(container);
 
     container
@@ -461,106 +590,10 @@ export default function SiteVisualPath({
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-
       window.removeEventListener("resize", schedule);
       window.removeEventListener("load", schedule);
-
-      dotsRef.current = [];
-      dotProgressRef.current = [];
-      previousDotStatesRef.current = [];
     };
   }, [measure]);
-
-  const update = useCallback(() => {
-    const container = containerRef.current;
-    const table = tableRef.current;
-
-    if (!container || !table) return;
-
-    const vh = window.innerHeight;
-    const rect = container.getBoundingClientRect();
-    const scrollable = rect.height - vh;
-
-    const p =
-      scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
-
-    const headY =
-      vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
-
-    target.set(lengthAt(table, headY));
-  }, [target]);
-
-  useMotionValueEvent(scrollY, "change", update);
-
-  useLayoutEffect(() => {
-    const path = trackRef.current;
-
-    if (!path || !pathData.d) {
-      tableRef.current = null;
-      return;
-    }
-
-    const total = path.getTotalLength();
-    const steps = clamp(Math.ceil(total / 6), 120, 1500);
-
-    const ys: number[] = [];
-    const ls: number[] = [];
-
-    for (let i = 0; i <= steps; i++) {
-      const length = (total * i) / steps;
-      const point = path.getPointAtLength(length);
-
-      ys.push(
-        i === 0
-          ? point.y
-          : Math.max(point.y, ys[i - 1])
-      );
-
-      ls.push(length);
-    }
-
-    tableRef.current = { ys, ls, total };
-
-    const container = containerRef.current;
-
-    if (container) {
-      const containerRect = container.getBoundingClientRect();
-      const dots = dotsRef.current;
-
-      dotProgressRef.current = dots.map((dot) => {
-        const rect = dot.getBoundingClientRect();
-        const y =
-          rect.top + rect.height / 2 - containerRect.top;
-
-        return lengthAt(tableRef.current!, y);
-      });
-    }
-
-    update();
-    syncDots(progress.get());
-  }, [pathData.d, progress, syncDots, update]);
-
-  useMotionValueEvent(progress, "change", (value) => {
-    const path = trackRef.current;
-    const head = headRef.current;
-    const table = tableRef.current;
-
-    if (path && head && table) {
-      const point = path.getPointAtLength(
-        clamp(value, 0, 1) * table.total
-      );
-
-      head.setAttribute(
-        "transform",
-        `translate(${point.x} ${point.y})`
-      );
-
-      head.style.opacity =
-        value > 0.002 && value < 0.998 ? "1" : "0";
-    }
-
-    syncDots(value);
-  });
 
   return (
     <div ref={containerRef} className="relative">
@@ -603,6 +636,7 @@ export default function SiteVisualPath({
           </defs>
 
           <g mask={`url(#${maskId})`}>
+            {/* خط ثابت؛ روی موبایل طلایی و روی دسکتاپ کم‌رنگ */}
             <path
               ref={trackRef}
               d={pathData.d}
@@ -610,40 +644,19 @@ export default function SiteVisualPath({
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              className="[stroke-opacity:1] lg:[stroke-opacity:0.18]"
               style={{
-                stroke: "var(--brand-accent)",
-                strokeOpacity: 0.18,
-              }}
-            />
-
-            <motion.path
-              d={pathData.d}
-              fill="none"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
-              style={{
-                pathLength: reduceMotion ? 1 : progress,
                 stroke: "var(--brand-accent)",
               }}
             />
 
-            {!reduceMotion && (
-              <g ref={headRef} style={{ opacity: 0 }}>
-                <circle
-                  r="9"
-                  style={{
-                    fill: "var(--brand-accent)",
-                    fillOpacity: 0.18,
-                  }}
-                />
-
-                <circle
-                  r="4"
-                  style={{ fill: "var(--brand-accent)" }}
-                />
-              </g>
+            {/* منطق انیمیشن فقط در دسکتاپ فعال می‌شود */}
+            {isDesktop && (
+              <DesktopPathAnimation
+                d={pathData.d}
+                containerRef={containerRef}
+                trackRef={trackRef}
+              />
             )}
           </g>
         </svg>

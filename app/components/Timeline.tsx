@@ -1,20 +1,14 @@
+
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocale } from "@/i18n/LocaleProvider";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+const DESKTOP_QUERY = "(min-width: 1024px)";
 
 function Dot({
   label,
@@ -23,7 +17,6 @@ function Dot({
 }: {
   label: string;
   position?: "mid" | "start" | "end";
-  // فقط موبایل: سمتی که ریل مارپیچ در آن قرار دارد. روی دسکتاپ بی‌اثر است.
   side?: "start" | "end";
 }) {
   const pos =
@@ -33,11 +26,14 @@ function Dot({
         ? "top-0"
         : "bottom-0";
 
-  const mobileSide = side === "start" ? "start-0" : "end-0 lg:end-auto";
+  const mobileSide =
+    side === "start" ? "start-0" : "end-0 lg:end-auto";
 
   return (
     <div
-      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-light shadow-sm lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
+      data-timeline-dot
+      data-line-passed="false"
+      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-light shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-accent data-[line-passed=true]:bg-accent data-[line-passed=true]:text-navy data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
@@ -48,75 +44,92 @@ export default function Timeline() {
   const { history } = useLocale().content;
   const sectionRef = useRef<HTMLElement>(null);
 
+  // موبایل: طلایی شدن تدریجی دایره‌ها هنگام اسکرول
+  // بدون فعال کردن انیمیشن حرکت خط
+  useEffect(() => {
+    const section = sectionRef.current;
+
+    if (!section) return;
+
+    const media = window.matchMedia("(max-width: 1023px)");
+
+    const updateDots = () => {
+      if (!media.matches) return;
+
+      const triggerY = window.innerHeight * 0.66;
+
+      section
+        .querySelectorAll<HTMLElement>("[data-timeline-dot]")
+        .forEach((dot) => {
+          const rect = dot.getBoundingClientRect();
+          const centerY = rect.top + rect.height / 2;
+
+          dot.dataset.linePassed = String(centerY <= triggerY);
+        });
+    };
+
+    updateDots();
+
+    window.addEventListener("scroll", updateDots, {
+      passive: true,
+    });
+
+    window.addEventListener("resize", updateDots);
+    media.addEventListener("change", updateDots);
+
+    return () => {
+      window.removeEventListener("scroll", updateDots);
+      window.removeEventListener("resize", updateDots);
+      media.removeEventListener("change", updateDots);
+    };
+  }, [history.length]);
+
   useLayoutEffect(() => {
     const section = sectionRef.current;
 
     if (!section || !history.length) return;
 
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
+    const mm = gsap.matchMedia();
 
-    if (reduceMotion) return;
+    mm.add(DESKTOP_QUERY, () => {
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
 
-    // خواندن رنگ‌ها از توکن‌های globals.css
-    const css = getComputedStyle(document.documentElement);
-    const accent =
-      css.getPropertyValue("--brand-accent").trim() || "#C5AA76";
-    const onAccent =
-      css.getPropertyValue("--brand-on-accent").trim() || "#061F38";
+      if (reduceMotion) return;
 
-    const ctx = gsap.context(() => {
-      gsap.utils.toArray<HTMLElement>(".timeline-dot").forEach((dot) => {
-        gsap.fromTo(
-          dot,
-          {
-            boxShadow: `0 0 0 0 ${hexToRgba(accent, 0)}, 0 0 0 0 ${hexToRgba(accent, 0)}`,
-          },
-          {
-            backgroundColor: accent,
-            borderColor: accent,
-            color: onAccent,
-            boxShadow: `0 0 0 8px ${hexToRgba(accent, 0.15)}, 0 0 40px ${hexToRgba(accent, 0.35)}`,
-            ease: "none",
-            scrollTrigger: {
-              trigger: dot,
-              start: "center 66%",
-              end: "center 56%",
-              scrub: true,
-            },
-          }
-        );
-      });
-
-      gsap.utils
-        .toArray<HTMLElement>(".timeline-content")
-        .forEach((content) => {
-          gsap.from(content.children, {
-            y: 24,
-            opacity: 0,
-            filter: "blur(6px)",
-            duration: 0.8,
-            stagger: 0.08,
-            ease: "power3.out",
-            clearProps: "filter",
-            scrollTrigger: {
-              trigger: content,
-              start: "top 85%",
-              toggleActions: "play none none reverse",
-            },
+      const ctx = gsap.context(() => {
+        gsap.utils
+          .toArray<HTMLElement>(".timeline-content")
+          .forEach((content) => {
+            gsap.from(content.children, {
+              y: 24,
+              opacity: 0,
+              filter: "blur(6px)",
+              duration: 0.8,
+              stagger: 0.08,
+              ease: "power3.out",
+              clearProps: "filter",
+              scrollTrigger: {
+                trigger: content,
+                start: "top 85%",
+                toggleActions: "play none none reverse",
+              },
+            });
           });
-        });
-    }, section);
+      }, section);
 
-    const refresh = () => ScrollTrigger.refresh();
+      const refresh = () => ScrollTrigger.refresh();
 
-    window.addEventListener("load", refresh);
+      window.addEventListener("load", refresh);
 
-    return () => {
-      window.removeEventListener("load", refresh);
-      ctx.revert();
-    };
+      return () => {
+        window.removeEventListener("load", refresh);
+        ctx.revert();
+      };
+    });
+
+    return () => mm.revert();
   }, [history.length]);
 
   return (
@@ -127,9 +140,6 @@ export default function Timeline() {
     >
       <div className="page-container">
         <div className="relative mx-auto max-w-5xl">
-          {/* خط پایه تایم‌لاین؛ خط پرشونده را SiteVisualPath رسم می‌کند.
-              موبایل و تبلت: مسیر مارپیچ را SiteVisualPath می‌کشد (این خط فقط
-              نگه‌دارنده‌ی انکرهاست و دیده نمی‌شود) | دسکتاپ: وسط صفحه */}
           <div className="absolute bottom-0 start-8 top-0 w-px bg-transparent lg:start-1/2 lg:bg-light/10">
             <span
               data-line-anchor="timeline-start"
@@ -148,8 +158,6 @@ export default function Timeline() {
             {history.map((item, i) => {
               const textFirst = i % 2 === 0;
               const isRange = !!item.yearEnd;
-
-              // فقط موبایل: ردیف‌های زوج ریل در start، فرد ریل در end
               const railStart = i % 2 === 0;
               const side = railStart ? "start" : "end";
 
@@ -162,7 +170,6 @@ export default function Timeline() {
                     isRange ? "py-20 lg:py-28" : ""
                   }`}
                 >
-                  {/* انکرهای مسیر مارپیچ موبایل (روی دسکتاپ مخفی) */}
                   <span
                     data-line-meander="top"
                     aria-hidden="true"
@@ -172,6 +179,7 @@ export default function Timeline() {
                         : "end-[calc(2rem-0.5px)]"
                     }`}
                   />
+
                   <span
                     data-line-meander="bottom"
                     aria-hidden="true"
@@ -184,12 +192,11 @@ export default function Timeline() {
 
                   {isRange && (
                     <>
-                      {/* خط بازه — دسکتاپ (دقیقاً مثل قبل) */}
                       <span
                         aria-hidden="true"
                         className="absolute inset-y-0 z-0 hidden w-0.5 bg-accent/40 lg:start-1/2 lg:block rtl:translate-x-1/2 ltr:-translate-x-1/2"
                       />
-                      {/* خط بازه — موبایل */}
+
                       <span
                         aria-hidden="true"
                         className={`absolute inset-y-0 z-0 w-0.5 bg-accent/40 lg:hidden ${
@@ -203,14 +210,22 @@ export default function Timeline() {
 
                   {isRange ? (
                     <>
-                      <Dot label={item.year} position="start" side={side} />
-                      <Dot label={item.yearEnd!} position="end" side={side} />
+                      <Dot
+                        label={item.year}
+                        position="start"
+                        side={side}
+                      />
+
+                      <Dot
+                        label={item.yearEnd!}
+                        position="end"
+                        side={side}
+                      />
                     </>
                   ) : (
                     <Dot label={item.year} side={side} />
                   )}
 
-                  {/* متن رویداد */}
                   <div
                     className={
                       textFirst
@@ -222,7 +237,7 @@ export default function Timeline() {
                       <div className="timeline-content">
                         <span
                           aria-hidden="true"
-                          className="block h-px w-8 bg-accent transition-all duration-500 group-hover:w-16"
+                          className="block h-px w-8 bg-accent lg:transition-all lg:duration-500 group-hover:w-16"
                         />
 
                         <h3 className="mt-4 text-xl font-bold tracking-tight text-light sm:mt-5 sm:text-2xl lg:text-3xl">
@@ -232,7 +247,7 @@ export default function Timeline() {
                         {item.paragraphs.map((paragraph, idx) => (
                           <p
                             key={idx}
-                            className="mt-3 text-[15px] leading-7 text-mist transition-colors duration-500 group-hover:text-light sm:mt-4 sm:text-base sm:leading-8"
+                            className="mt-3 text-[15px] leading-7 text-mist lg:transition-colors lg:duration-500 group-hover:text-light sm:mt-4 sm:text-base sm:leading-8"
                           >
                             {paragraph}
                           </p>
@@ -241,7 +256,6 @@ export default function Timeline() {
                     </div>
                   </div>
 
-                  {/* تصویر رویداد */}
                   <div className={textFirst ? "lg:order-2" : "lg:order-1"}>
                     <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
                       {item.image ? (
@@ -250,8 +264,14 @@ export default function Timeline() {
                           src={item.image}
                           alt={item.title}
                           loading="lazy"
-                          onLoad={() => ScrollTrigger.refresh()}
-                          className="aspect-[4/3] w-full object-cover opacity-90 saturate-75 transition duration-700 group-hover/img:scale-105 group-hover/img:opacity-100 group-hover/img:saturate-100 lg:aspect-auto"
+                          onLoad={() => {
+                            if (
+                              window.matchMedia(DESKTOP_QUERY).matches
+                            ) {
+                              ScrollTrigger.refresh();
+                            }
+                          }}
+                          className="aspect-[4/3] w-full object-cover opacity-90 saturate-75 lg:transition lg:duration-700 group-hover/img:scale-105 group-hover/img:opacity-100 group-hover/img:saturate-100 lg:aspect-auto"
                         />
                       ) : (
                         <div className="aspect-[4/3] w-full bg-light/5" />
