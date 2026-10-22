@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -67,6 +66,14 @@ const EMPTY: PathData = {
 const clamp = (v: number, min: number, max: number) =>
   Math.min(Math.max(v, min), max);
 
+// رفع مورد ۱۰ (SSR): جلوگیری از هشدار useLayoutEffect روی سرور
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * موقعیت المان نسبت به padding-edge کانتینر root.
+ * رفع مورد ۴: border والدهای میانی (clientLeft/clientTop) هم حساب می‌شود.
+ */
 function layoutBox(el: HTMLElement, root: HTMLElement) {
   let x = 0;
   let y = 0;
@@ -75,7 +82,15 @@ function layoutBox(el: HTMLElement, root: HTMLElement) {
   while (node && node !== root) {
     x += node.offsetLeft;
     y += node.offsetTop;
-    node = node.offsetParent as HTMLElement | null;
+
+    const parent = node.offsetParent as HTMLElement | null;
+
+    if (parent && parent !== root) {
+      x += parent.clientLeft;
+      y += parent.clientTop;
+    }
+
+    node = parent;
   }
 
   return {
@@ -97,11 +112,7 @@ function makeStep(from: Point, to: Point) {
   const drop = to.y - from.y;
   const dir = to.x >= from.x ? 1 : -1;
 
-  const r = Math.min(
-    CORNER_RADIUS,
-    Math.max(0, drop / 2),
-    run / 2
-  );
+  const r = Math.min(CORNER_RADIUS, Math.max(0, drop / 2), run / 2);
 
   if (run < 1 || drop < 1 || r < 1) {
     return `L ${to.x} ${to.y}`;
@@ -189,7 +200,11 @@ function DesktopPathAnimation({
 
   const dotsRef = useRef<HTMLElement[]>([]);
   const dotProgressRef = useRef<number[]>([]);
-  const previousDotStatesRef = useRef<boolean[]>([]);
+  // رفع مورد ۱: undefined یعنی «هنوز هیچ وضعیتی روی DOM ثبت نشده»
+  const previousDotStatesRef = useRef<(boolean | undefined)[]>([]);
+
+  // ارتفاع پایدار viewport؛ با باز و بسته شدن نوار آدرس مرورگر تغییر نمی‌کند
+  const viewportHeightRef = useRef(0);
 
   const reduceMotion = useReducedMotion();
   const { scrollY } = useScroll();
@@ -213,7 +228,7 @@ function DesktopPathAnimation({
 
         if (start === undefined) continue;
 
-        const passed = value >= start;
+        const passed = reduceMotion ? true : value >= start;
 
         if (previous[i] === passed) continue;
 
@@ -224,28 +239,66 @@ function DesktopPathAnimation({
     [reduceMotion]
   );
 
+  // رفع مورد ۲: منطق جابه‌جایی head جدا شد تا بعد از measure هم صدا زده شود
+  const placeHead = useCallback(
+    (value: number) => {
+      const path = trackRef.current;
+      const head = headRef.current;
+      const table = tableRef.current;
+
+      if (!path || !head || !table) return;
+
+      const point = path.getPointAtLength(
+        clamp(value, 0, 1) * table.total
+      );
+
+      head.setAttribute("transform", `translate(${point.x} ${point.y})`);
+
+      head.style.opacity =
+        value > 0.002 && value < 0.998 ? "1" : "0";
+    },
+    [trackRef]
+  );
+
   const update = useCallback(() => {
     const container = containerRef.current;
     const table = tableRef.current;
 
     if (!container || !table) return;
 
-    const vh = window.innerHeight;
+    const vh = viewportHeightRef.current || window.innerHeight;
     const rect = container.getBoundingClientRect();
     const scrollable = rect.height - vh;
 
     const p =
       scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 1;
 
-    const headY =
-      vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
+    const headY = vh * (HEAD_START + HEAD_GAIN * p * p) - rect.top;
 
     target.set(lengthAt(table, headY));
   }, [containerRef, target]);
 
   useMotionValueEvent(scrollY, "change", update);
 
-  useLayoutEffect(() => {
+  // ارتفاع viewport فقط وقتی عرض عوض شود (resize واقعی/چرخش صفحه) دوباره خوانده می‌شود
+  useEffect(() => {
+    let lastWidth = window.innerWidth;
+    viewportHeightRef.current = document.documentElement.clientHeight;
+
+    const onResize = () => {
+      if (window.innerWidth === lastWidth) return;
+
+      lastWidth = window.innerWidth;
+      viewportHeightRef.current = document.documentElement.clientHeight;
+      update();
+    };
+
+    window.addEventListener("resize", onResize);
+
+    return () => window.removeEventListener("resize", onResize);
+  }, [update]);
+
+  useIsomorphicLayoutEffect(() => {
     const path = trackRef.current;
     const container = containerRef.current;
 
@@ -255,7 +308,7 @@ function DesktopPathAnimation({
     }
 
     const total = path.getTotalLength();
-    const steps = clamp(Math.ceil(total / 6), 120, 1500);
+    const steps = clamp(Math.ceil(total / 8), 100, 1000);
 
     const ys: number[] = [];
     const ls: number[] = [];
@@ -264,77 +317,80 @@ function DesktopPathAnimation({
       const length = (total * i) / steps;
       const point = path.getPointAtLength(length);
 
-      ys.push(
-        i === 0
-          ? point.y
-          : Math.max(point.y, ys[i - 1])
-      );
-
+      ys.push(i === 0 ? point.y : Math.max(point.y, ys[i - 1]));
       ls.push(length);
     }
 
-    tableRef.current = { ys, ls, total };
-
-    const containerRect = container.getBoundingClientRect();
+    const table: Table = { ys, ls, total };
+    tableRef.current = table;
 
     dotsRef.current = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        SELECTORS.timelineDots
-      )
+      container.querySelectorAll<HTMLElement>(SELECTORS.timelineDots)
     );
 
-    previousDotStatesRef.current = dotsRef.current.map(() => false);
+    // رفع مورد ۱: وضعیت قبلی پاک می‌شود تا syncDots همه‌ی dot ها را دوباره روی DOM بنویسد
+    previousDotStatesRef.current = dotsRef.current.map(() => undefined);
 
+    // رفع مورد ۴: همان سیستم مختصاتی که برای مسیر استفاده می‌شود (layoutBox)
     dotProgressRef.current = dotsRef.current.map((dot) => {
-      const rect = dot.getBoundingClientRect();
-      const y =
-        rect.top + rect.height / 2 - containerRect.top;
+      const box = layoutBox(dot, container);
+      const y = box.y + box.height / 2;
 
-      return lengthAt(tableRef.current!, y);
+      return lengthAt(table, y);
     });
 
+    if (!viewportHeightRef.current) {
+      viewportHeightRef.current = document.documentElement.clientHeight;
+    }
+
     update();
-    syncDots(progress.get());
+
+    // بعد از هر بازسازی مسیر (اولین mount، resize، layout shift) بدون انیمیشن
+    // به مقدار واقعی می‌پریم تا head و خط عقب نمانند
+    progress.jump(target.get());
+
+    const current = progress.get();
+
+    placeHead(current);
+    syncDots(current);
   }, [
     d,
     containerRef,
     trackRef,
     progress,
+    target,
+    placeHead,
     syncDots,
     update,
   ]);
 
   useMotionValueEvent(progress, "change", (value) => {
-    const path = trackRef.current;
-    const head = headRef.current;
-    const table = tableRef.current;
-
-    if (path && head && table) {
-      const point = path.getPointAtLength(
-        clamp(value, 0, 1) * table.total
-      );
-
-      head.setAttribute(
-        "transform",
-        `translate(${point.x} ${point.y})`
-      );
-
-      head.style.opacity =
-        value > 0.002 && value < 0.998 ? "1" : "0";
-    }
-
+    placeHead(value);
     syncDots(value);
   });
 
   return (
     <>
+      {/* درخشش بدون فیلتر: یک path ضخیم‌تر و کم‌رنگ به‌جای drop-shadow */}
+      <motion.path
+        d={d}
+        fill="none"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{
+          pathLength: reduceMotion ? 1 : progress,
+          stroke: "var(--brand-accent)",
+          strokeOpacity: 0.16,
+        }}
+      />
+
       <motion.path
         d={d}
         fill="none"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="hidden lg:block md:[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--brand-accent)_55%,transparent))]"
         style={{
           pathLength: reduceMotion ? 1 : progress,
           stroke: "var(--brand-accent)",
@@ -342,11 +398,7 @@ function DesktopPathAnimation({
       />
 
       {!reduceMotion && (
-        <g
-          ref={headRef}
-          className="hidden lg:block"
-          style={{ opacity: 0 }}
-        >
+        <g ref={headRef} style={{ opacity: 0 }}>
           <circle
             r="9"
             style={{
@@ -355,10 +407,7 @@ function DesktopPathAnimation({
             }}
           />
 
-          <circle
-            r="4"
-            style={{ fill: "var(--brand-accent)" }}
-          />
+          <circle r="4" style={{ fill: "var(--brand-accent)" }} />
         </g>
       )}
     </>
@@ -397,9 +446,7 @@ export default function SiteVisualPath({
       };
     };
 
-    const start = centerOf(
-      container.querySelector(SELECTORS.start)
-    );
+    const start = centerOf(container.querySelector(SELECTORS.start));
 
     const timelineStart = centerOf(
       container.querySelector(SELECTORS.timelineStart)
@@ -425,9 +472,7 @@ export default function SiteVisualPath({
     }
 
     const highlightPoints = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        SELECTORS.highlightPoints
-      )
+      container.querySelectorAll<HTMLElement>(SELECTORS.highlightPoints)
     )
       .sort(
         (a, b) =>
@@ -455,52 +500,50 @@ export default function SiteVisualPath({
 
     let d = "";
 
-    if (
-      !desktop &&
-      start &&
-      firstHighlight &&
-      meanderTops.length > 0 &&
-      meanderTops.length === meanderBottoms.length
-    ) {
-      const lastIndex = meanderTops.length - 1;
+    if (!desktop) {
+      // رفع مورد ۵: موبایل شاخه‌ی جدا دارد و هرگز به هندسه‌ی دسکتاپ fallback نمی‌شود
+      const hasMeanders =
+        meanderTops.length > 0 &&
+        meanderTops.length === meanderBottoms.length;
 
-      const commands = [
-        `M ${start.x} ${start.y}`,
-        makeCurve(start, meanderTops[0]),
-      ];
-
-      for (let i = 0; i <= lastIndex; i++) {
-        commands.push(
-          `L ${meanderBottoms[i].x} ${meanderBottoms[i].y}`
+      if (
+        process.env.NODE_ENV !== "production" &&
+        meanderTops.length !== meanderBottoms.length
+      ) {
+        console.warn(
+          `[SiteVisualPath] تعداد meander بالا (${meanderTops.length}) و پایین (${meanderBottoms.length}) برابر نیست.`
         );
+      }
 
-        if (i < lastIndex) {
+      if (start && firstHighlight && hasMeanders) {
+        const lastIndex = meanderTops.length - 1;
+
+        const commands = [
+          `M ${start.x} ${start.y}`,
+          makeCurve(start, meanderTops[0]),
+        ];
+
+        for (let i = 0; i <= lastIndex; i++) {
           commands.push(
-            makeStep(meanderBottoms[i], meanderTops[i + 1])
+            `L ${meanderBottoms[i].x} ${meanderBottoms[i].y}`
+          );
+
+          if (i < lastIndex) {
+            commands.push(makeStep(meanderBottoms[i], meanderTops[i + 1]));
+          }
+        }
+
+        commands.push(makeCurve(meanderBottoms[lastIndex], firstHighlight));
+
+        for (let i = 1; i < highlightPoints.length; i++) {
+          commands.push(
+            makeCurve(highlightPoints[i - 1], highlightPoints[i])
           );
         }
+
+        d = commands.join(" ");
       }
-
-      commands.push(
-        makeCurve(meanderBottoms[lastIndex], firstHighlight)
-      );
-
-      for (let i = 1; i < highlightPoints.length; i++) {
-        commands.push(
-          makeCurve(
-            highlightPoints[i - 1],
-            highlightPoints[i]
-          )
-        );
-      }
-
-      d = commands.join(" ");
-    } else if (
-      start &&
-      timelineStart &&
-      timelineEnd &&
-      firstHighlight
-    ) {
+    } else if (start && timelineStart && timelineEnd && firstHighlight) {
       // هندسه‌ی مسیر دسکتاپ بدون تغییر حفظ شده است.
       const verticalEnd = {
         x: timelineStart.x,
@@ -516,10 +559,7 @@ export default function SiteVisualPath({
 
       for (let i = 1; i < highlightPoints.length; i++) {
         commands.push(
-          makeCurve(
-            highlightPoints[i - 1],
-            highlightPoints[i]
-          )
+          makeCurve(highlightPoints[i - 1], highlightPoints[i])
         );
       }
 
@@ -533,9 +573,7 @@ export default function SiteVisualPath({
       hiddenRect,
     };
 
-    setPathData((prev) =>
-      samePath(prev, next) ? prev : next
-    );
+    setPathData((prev) => (samePath(prev, next) ? prev : next));
   }, []);
 
   useEffect(() => {
@@ -554,13 +592,17 @@ export default function SiteVisualPath({
     };
   }, [measure]);
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     let frame = 0;
+    // رفع مورد ۷: بعد از unmount دیگر frame جدید گرفته نمی‌شود
+    let cancelled = false;
 
     const schedule = () => {
+      if (cancelled) return;
+
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(measure);
     };
@@ -588,6 +630,7 @@ export default function SiteVisualPath({
     document.fonts?.ready.then(schedule);
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("resize", schedule);
@@ -635,7 +678,7 @@ export default function SiteVisualPath({
             </mask>
           </defs>
 
-          <g mask={`url(#${maskId})`}>
+          <g mask={pathData.hiddenRect ? `url(#${maskId})` : undefined}>
             {/* خط ثابت؛ روی موبایل طلایی و روی دسکتاپ کم‌رنگ */}
             <path
               ref={trackRef}
