@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
@@ -8,6 +9,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
+const TIMELINE_TEXT_COLOR = "text-[#C4CED8]";
 
 function Dot({
   label,
@@ -32,7 +34,7 @@ function Dot({
     <div
       data-timeline-dot
       data-line-passed="false"
-      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-light shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-accent data-[line-passed=true]:bg-accent data-[line-passed=true]:text-navy data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
+      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-[#C4CED8] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-accent data-[line-passed=true]:bg-accent data-[line-passed=true]:text-[#C4CED8] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
@@ -44,8 +46,7 @@ export default function Timeline() {
   const sectionRef = useRef<HTMLElement>(null);
 
   // موبایل: طلایی شدن تدریجی دایره‌ها هنگام اسکرول
-  // با IntersectionObserver (بدون listener اسکرول و بدون getBoundingClientRect)
-  // و بدون فعال کردن انیمیشن حرکت خط
+  // بدون listener اسکرول و بدون فعال کردن انیمیشن حرکت خط
   useEffect(() => {
     const section = sectionRef.current;
 
@@ -65,9 +66,8 @@ export default function Timeline() {
 
       if (!media.matches) return;
 
-      // خط محرک روی ۶۶٪ ارتفاع صفحه است.
-      // ۳۲px = نصف ارتفاع دایره‌ی موبایل (h-16)، تا لحظه‌ی طلایی شدن
-      // دقیقاً وقتی باشد که مرکز دایره به خط می‌رسد.
+      // خط محرک روی ۶۶٪ ارتفاع صفحه قرار می‌گیرد.
+      // ۳۲ پیکسل، نصف ارتفاع دایره موبایل است.
       const bottomMargin = window.innerHeight * 0.34 + 32;
 
       observer = new IntersectionObserver(
@@ -76,8 +76,6 @@ export default function Timeline() {
             const el = entry.target as HTMLElement;
             const rootTop = entry.rootBounds?.top ?? 0;
 
-            // یا داخل ناحیه‌ی بالای خط محرک است،
-            // یا کاملاً از بالای صفحه رد شده است.
             const passed =
               entry.isIntersecting ||
               entry.boundingClientRect.top < rootTop;
@@ -99,8 +97,7 @@ export default function Timeline() {
         .forEach((dot) => observer!.observe(dot));
     };
 
-    // فقط با تغییر عرض دوباره ساخته می‌شود تا باز و بسته شدن
-    // نوار آدرس مرورگر موبایل باعث ساخت مجدد observer نشود.
+    // فقط هنگام تغییر عرض صفحه observer دوباره ساخته می‌شود.
     const handleResize = () => {
       if (window.innerWidth === lastWidth) return;
 
@@ -120,6 +117,7 @@ export default function Timeline() {
     };
   }, [history.length]);
 
+  // انیمیشن محتوای تایم‌لاین فقط در دسکتاپ
   useLayoutEffect(() => {
     const section = sectionRef.current;
 
@@ -176,6 +174,7 @@ export default function Timeline() {
     >
       <div className="page-container">
         <div className="relative mx-auto max-w-5xl">
+          {/* خط مرکزی تایم‌لاین */}
           <div className="absolute bottom-0 start-8 top-0 w-px bg-transparent lg:start-1/2 lg:bg-light/10">
             <span
               data-line-anchor="timeline-start"
@@ -206,6 +205,7 @@ export default function Timeline() {
                     isRange ? "py-20 lg:py-28" : ""
                   }`}
                 >
+                  {/* نقاط اتصال خط در موبایل */}
                   <span
                     data-line-meander="top"
                     aria-hidden="true"
@@ -226,6 +226,7 @@ export default function Timeline() {
                     }`}
                   />
 
+                  {/* خط بازه‌های تاریخی */}
                   {isRange && (
                     <>
                       <span
@@ -244,6 +245,7 @@ export default function Timeline() {
                     </>
                   )}
 
+                  {/* شماره یا بازه سال */}
                   {isRange ? (
                     <>
                       <Dot
@@ -262,6 +264,7 @@ export default function Timeline() {
                     <Dot label={item.year} side={side} />
                   )}
 
+                  {/* عنوان و توضیحات */}
                   <div
                     className={
                       textFirst
@@ -276,14 +279,16 @@ export default function Timeline() {
                           className="block h-px w-8 bg-accent lg:transition-all lg:duration-500 group-hover:w-16"
                         />
 
-                        <h3 className="mt-4 text-xl font-bold tracking-tight text-light sm:mt-5 sm:text-2xl lg:text-3xl">
+                        <h3
+                          className={`mt-4 text-xl font-bold tracking-tight ${TIMELINE_TEXT_COLOR} sm:mt-5 sm:text-2xl lg:text-3xl`}
+                        >
                           {item.title}
                         </h3>
 
                         {item.paragraphs.map((paragraph, idx) => (
                           <p
                             key={idx}
-                            className="mt-3 text-[15px] leading-7 text-mist lg:transition-colors lg:duration-500 group-hover:text-light sm:mt-4 sm:text-base sm:leading-8"
+                            className={`mt-3 text-[15px] leading-7 ${TIMELINE_TEXT_COLOR} lg:transition-colors lg:duration-500 group-hover:text-[#C4CED8] sm:mt-4 sm:text-base sm:leading-8`}
                           >
                             {paragraph}
                           </p>
@@ -292,6 +297,7 @@ export default function Timeline() {
                     </div>
                   </div>
 
+                  {/* تصویر رویداد */}
                   <div className={textFirst ? "lg:order-2" : "lg:order-1"}>
                     <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
                       {item.image ? (

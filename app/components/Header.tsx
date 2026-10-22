@@ -14,8 +14,9 @@ const LANG_LABELS: Record<string, string> = {
   ar: "العربية",
 };
 
-/** آیتم دراپ‌داون‌ها: padding یکسان در همه‌جا */
-const ITEM_CLASS = "block px-4 py-2.5 text-sm font-semibold transition-colors";
+/** آیتم دراپ‌داون‌ها: padding یکسان در همه‌جا + رنگ متن #c4ced8 و hover طلایی */
+const ITEM_CLASS =
+  "block px-4 py-2.5 text-sm font-semibold text-[#c4ced8] transition-colors hover:bg-[#c4ced8]/10 hover:text-accent";
 
 /** بین md و xl همبرگر مخفی است (breakpoint xl در globals.css برابر ۱۴۴۰px است) */
 const NO_HAMBURGER_QUERY = "(min-width: 768px) and (max-width: 1439.98px)";
@@ -68,7 +69,7 @@ function Dropdown({
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors hover:bg-light/10"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[#c4ced8] transition-colors hover:bg-[#c4ced8]/10"
       >
         {trigger}
 
@@ -88,8 +89,9 @@ function Dropdown({
         </svg>
       </button>
 
+      {/* پنل دراپ‌داون: بدون border */}
       <div
-        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-light py-1 text-navy shadow-lg transition-all duration-200 ${panelClassName} ${
+        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-navy py-1 text-[#c4ced8] shadow-lg shadow-black/30 transition-all duration-200 ${panelClassName} ${
           dropUp ? "bottom-full mb-2" : "top-full mt-2"
         } ${
           open
@@ -137,7 +139,7 @@ function NavDropdown({
             key={item.href}
             href={item.href}
             onClick={close}
-            className={`${ITEM_CLASS} hover:bg-navy/10`}
+            className={ITEM_CLASS}
           >
             {item.label}
           </a>
@@ -155,7 +157,8 @@ function LangDropdown({
   current: Locale;
   className?: string;
   dropUp?: boolean;
-}){ const pathname = usePathname();
+}) {
+  const pathname = usePathname();
 
   const getLocalizedPath = (locale: Locale) => {
     const segments = pathname.split("/");
@@ -166,7 +169,9 @@ function LangDropdown({
       segments.splice(1, 0, locale);
     }
 
-    return segments.join("/") || `/${locale}`;} 
+    return segments.join("/") || `/${locale}`;
+  };
+
   return (
     <Dropdown
       label={LANG_LABELS[current] ?? current.toUpperCase()}
@@ -201,7 +206,7 @@ function LangDropdown({
             aria-current={l === current ? "true" : undefined}
             onClick={close}
             className={`${ITEM_CLASS} ${
-              l === current ? "bg-navy/10" : "hover:bg-navy/10"
+              l === current ? "bg-[#c4ced8]/10 !text-accent" : ""
             }`}
           >
             {LANG_LABELS[l] ?? l.toUpperCase()}
@@ -274,13 +279,13 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-light/10 bg-navy text-light">
+      <header className="fixed inset-x-0 top-0 z-50 bg-navy text-[#c4ced8]">
         <div
           className={`page-container flex items-center justify-between gap-6 transition-[height] duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:gap-12 ${
             scrolled ? "h-16 md:h-20" : "h-20 md:h-24"
           }`}
         >
-          {/* لوگو: همیشه سفید، چون پس‌زمینه‌ی هدر همیشه تیره است */}
+          {/* لوگو */}
           <a
             href={`/${locale}`}
             className="relative block h-10 w-[120px] shrink-0 md:h-12 md:w-[150px]"
@@ -297,7 +302,7 @@ export default function Header() {
 
           <nav
             aria-label={ui.openMenu}
-            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-light transition-opacity duration-300 xl:flex 2xl:gap-10 ${
+            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-[#c4ced8] transition-opacity duration-300 xl:flex 2xl:gap-10 ${
               open ? "invisible opacity-0" : "opacity-100"
             }`}
           >
@@ -312,7 +317,7 @@ export default function Header() {
             ))}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 text-light xl:justify-self-end">
+          <div className="flex shrink-0 items-center gap-2 text-[#c4ced8] xl:justify-self-end">
             <div
               className={`hidden items-center gap-2 transition-opacity duration-300 md:flex ${
                 open ? "invisible opacity-0" : "opacity-100"
@@ -374,9 +379,9 @@ export default function Header() {
       >
         {/* موبایل: دو پنل زیر هم | md به بالا: دو پنل کنار هم */}
         <div className="flex min-h-full flex-col md:flex-row">
-          {/* پنل سفید */}
+          {/* پنل روشن: رنگ #c4ced8 (متن آن تیره می‌ماند تا خوانا باشد) */}
           <div
-            className={`relative w-full shrink-0 bg-light text-navy will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
+            className={`relative w-full shrink-0 bg-[#c4ced8] text-navy will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open
                 ? "translate-x-0"
                 : "rtl:translate-x-full ltr:-translate-x-full"
@@ -421,9 +426,9 @@ export default function Header() {
             />
           </div>
 
-          {/* پنل تیره */}
+          {/* پنل تیره: همه متن‌ها #c4ced8 */}
           <div
-            className={`w-full min-w-0 flex-1 bg-navy text-light will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
+            className={`w-full min-w-0 flex-1 bg-navy text-[#c4ced8] will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
               open
                 ? "translate-x-0"
                 : "rtl:-translate-x-full ltr:translate-x-full"
@@ -435,12 +440,12 @@ export default function Header() {
                 open ? "opacity-100" : "opacity-0"
               }`}
             >
-              <div className="flex items-center gap-3 rounded-full bg-light/10 px-4 py-3 md:gap-4 md:px-6 md:py-4">
+              <div className="flex items-center gap-3 rounded-full bg-[#c4ced8]/10 px-4 py-3 md:gap-4 md:px-6 md:py-4">
                 <input
                   type="search"
                   aria-label={ui.searchPlaceholder}
                   placeholder={ui.searchPlaceholder}
-                  className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-light/60 md:text-base"
+                  className="w-full min-w-0 bg-transparent text-sm text-[#c4ced8] outline-none placeholder:text-[#c4ced8]/60 md:text-base"
                 />
 
                 <svg

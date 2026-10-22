@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -171,14 +170,13 @@ export default function Footer() {
   const isEnglish = locale === "en";
 
   return (
-  
     <footer
-  dir={isEnglish ? "ltr" : "rtl"}
-  lang={locale}
-  className="bg-header text-[#E8EAF1]"
->
+      dir={isEnglish ? "ltr" : "rtl"}
+      lang={locale}
+      className="bg-header text-[#c4ced8]"
+    >
       <div className="mx-auto max-w-360 px-6 py-10 md:px-10 lg:px-14">
-        <div className="flex flex-col gap-7 border-b border-white/20 pb-7 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-7 border-b border-[#c4ced8]/20 pb-7 lg:flex-row lg:items-center lg:justify-between">
           <Link
             href={`/${locale}`}
             aria-label={t.home}
@@ -245,11 +243,11 @@ export default function Footer() {
           </section>
         </div>
 
-        <div className="flex justify-center border-t border-white/20 py-6">
+        <div className="flex justify-center border-t border-[#c4ced8]/20 py-6">
           <SocialLinks />
         </div>
 
-        <div className="border-t border-white/20 pt-6">
+        <div className="border-t border-[#c4ced8]/20 pt-6">
           <nav
             aria-label={t.legal}
             className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs leading-6 sm:text-sm"
@@ -267,7 +265,7 @@ export default function Footer() {
                 </Link>
 
                 {index !== data.legal.length - 1 && (
-                  <span className="text-white/40" aria-hidden="true">
+                  <span className="text-[#c4ced8]/40" aria-hidden="true">
                     |
                   </span>
                 )}

@@ -13,7 +13,9 @@ function useCount(text: string, run: boolean) {
   const parsed = useMemo(() => {
     const match = text.match(/^([۰-۹٠-٩0-9]+)(.*)$/);
 
-    return match ? { target: toNumber(match[1]), suffix: match[2] } : null;
+    return match
+      ? { target: toNumber(match[1]), suffix: match[2] }
+      : null;
   }, [text]);
 
   const isNumber = parsed !== null;
@@ -42,7 +44,9 @@ function useCount(text: string, run: boolean) {
 
       setCount(Math.round(target * eased));
 
-      if (progress < 1) raf = requestAnimationFrame(tick);
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      }
     };
 
     raf = requestAnimationFrame(tick);
@@ -71,30 +75,24 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.6, ease: EASE }}
       onViewportEnter={() => setSeen(true)}
-      className="group relative z-10 w-[88%] max-w-none overflow-hidden rounded-[28px] border border-light/10 bg-light/5 py-8 ps-14 pe-5 text-start shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[border-color,background-color,box-shadow,transform] duration-500 hover:border-accent/40 hover:bg-light/10 sm:w-[84%] sm:py-10 sm:ps-16 sm:pe-8 md:w-[78%] lg:w-full lg:max-w-[520px] lg:px-8 lg:py-11 lg:text-center lg:hover:-translate-y-1"
+      className="relative z-10 w-[88%] max-w-none overflow-hidden rounded-[28px] bg-light/5 py-8 ps-14 pe-5 text-start backdrop-blur-md sm:w-[84%] sm:py-10 sm:ps-16 sm:pe-8 md:w-[78%] lg:w-full lg:max-w-[520px] lg:px-8 lg:py-11 lg:text-center"
     >
-      {/* نقطه‌ی اتصال مسیر سراسری */}
+      {/* نقطه اتصال مسیر سراسری */}
       <span
         data-line-path-point={index}
         aria-hidden="true"
         className="pointer-events-none absolute start-8 top-1/2 h-px w-px lg:start-1/2"
       />
 
-      {/* بازتاب شیشه */}
+      {/* بازتاب ثابت شیشه */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_25%,transparent_48%,rgba(255,255,255,0.02)_75%,rgba(255,255,255,0.08)_100%)]"
       />
 
-      {/* بازتاب متحرک؛ فقط دسکتاپ */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-y-1/2 left-0 z-0 hidden w-1/3 -translate-x-full rotate-[20deg] bg-linear-to-r from-transparent via-light/15 to-transparent opacity-0 blur-md transition-[translate,opacity] duration-[1100ms] ease-out group-hover:translate-x-[300%] group-hover:opacity-100 motion-reduce:hidden lg:block"
-      />
-
       <div className="relative z-10">
         <h3
-          className={`font-bold leading-tight tracking-tight text-light transition-colors duration-300 group-hover:text-accent ${
+          className={`font-bold leading-tight tracking-tight text-light ${
             isNumber
               ? "text-4xl sm:text-5xl lg:text-6xl"
               : "text-xl leading-snug sm:text-2xl lg:text-3xl"
@@ -110,7 +108,7 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
           )}
         </h3>
 
-        <div className="me-auto mt-4 h-px w-10 bg-accent/70 transition-all duration-500 group-hover:w-16 group-hover:bg-accent sm:mt-5 lg:mx-auto" />
+        <div className="me-auto mt-4 h-px w-10 bg-accent/70 sm:mt-5 lg:mx-auto" />
 
         <div className="mt-5 flex max-w-2xl flex-col items-start gap-4 sm:mt-6 sm:gap-5 lg:mx-auto lg:items-center">
           {h.blocks.map((block, i) => (

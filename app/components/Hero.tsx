@@ -46,15 +46,15 @@ export default function Hero() {
         </div>
 
         {/* کل عنوان به‌عنوان ناحیه‌ی مخفی‌کننده‌ی خط استفاده می‌شود (در همه‌ی زبان‌ها و اندازه‌ها) */}
-        <motion.h1
-          data-line-title-word
-          initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: reduceMotion ? 0 : 0.15 }}
-          className="relative z-30 mb-2 w-fit max-w-3xl text-balance px-2 text-3xl font-bold leading-snug sm:text-4xl md:mb-8 md:text-5xl md:leading-tight lg:text-6xl"
-        >
-          {intro.title}
-        </motion.h1>
+     <motion.h1
+  data-line-title-word
+  initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.7, delay: reduceMotion ? 0 : 0.15 }}
+  className="relative z-30 mb-2 w-fit max-w-3xl text-balance px-2 text-3xl font-bold leading-snug text-[#C4CED8] sm:text-4xl md:mb-8 md:text-5xl md:leading-tight lg:text-6xl"
+>
+  {intro.title}
+</motion.h1>
       </div>
     </section>
   );

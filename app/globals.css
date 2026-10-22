@@ -10,12 +10,15 @@
 
 :root {
   /* ---------- Brand palette (Figma: alemohammad-brandbook-v3-blue) ---------- */
-  --brand-navy: #001c3a;          /* Base background */
-  --brand-text: #f2f4f6;          /* Text color */
+
+  /* ---------- Brand palette (Figma: alemohammad-brandbook-v3-blue) ---------- */
+  --brand-navy: #001c3a;           /* Base background */
+ --brand-text: #c4ced8;           /* Text color */           /* Text color */
   --brand-text-secondary: #c4ced8; /* Secondary text gray */
-  --brand-accent: #c5aa76;        /* Buttons and CTA (gold) */
-  --brand-accent-hover: #b59863;  /* Gold hover */
-  --brand-on-accent: #061f38;     /* Text on gold buttons */
+  --brand-accent: #c5aa76;         /* Buttons and CTA (gold) */
+  --brand-accent-hover: #b59863;   /* Gold hover */
+  --brand-on-accent: #061f38;      /* Text on gold buttons */
+      /* Text on gold buttons */
 
   /* ---------- shadcn tokens mapped to the brand ---------- */
   --background: var(--brand-navy);

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -71,18 +72,17 @@ export default function AboutSections() {
 
   // زوم آرام عکس هنگام لود (فقط دسکتاپ)
   const [heroReady, setHeroReady] = useState(false);
+
   useEffect(() => {
     const id = requestAnimationFrame(() => setHeroReady(true));
     return () => cancelAnimationFrame(id);
   }, []);
 
   return (
-    <main className="relative isolate overflow-hidden bg-[#001C3A] text-[#F2F4F6]">
+    <main className="relative isolate overflow-hidden bg-[#001C3A] text-[#c4ced8]">
       {/* HERO */}
-          {/* HERO */}
       <section className="px-3 pb-4 pt-24 sm:px-4 sm:pb-6 sm:pt-28 lg:px-5">
-        <div className="relative mx-auto h-[72svh] min-h-[440px] w-full max-w-[1600px] overflow-hidden rounded-2xl bg-[#0b2d4b] sm:h-[60svh] sm:min-h-[460px] sm:rounded-3xl md:h-[calc(100svh-8rem)] md:min-h-[560px]">
-          {/* عکس: در موبایل و تبلت پایین عکس ثابت می‌ماند و بالای آن کراپ می‌شود */}
+        <div className="relative mx-auto h-[72svh] min-h-[440px] w-full max-w-[1600px] overflow-hidden rounded-2xl bg-[#001C3A] sm:h-[60svh] sm:min-h-[460px] sm:rounded-3xl md:h-[calc(100svh-8rem)] md:min-h-[560px]">
           <Image
             src={HERO_IMAGE}
             alt=""
@@ -94,13 +94,13 @@ export default function AboutSections() {
             }`}
           />
 
-          {/* گرادیان: در موبایل/تبلت کوتاه و ملایم تا پایین عکس دیده شود */}
+          {/* گرادیان روی عکس */}
           <div
             aria-hidden="true"
             className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,28,58,0.7)_0%,rgba(0,28,58,0.2)_28%,transparent_50%)] md:bg-[linear-gradient(to_top,rgba(0,28,58,0.9)_0%,rgba(0,28,58,0.35)_50%,rgba(0,28,58,0.1)_100%)]"
           />
 
-          {/* محتوا */}
+          {/* محتوای Hero */}
           <div className="absolute inset-x-0 bottom-0 flex flex-col items-center px-5 pb-6 text-center sm:px-8 sm:pb-8 md:pb-12 lg:pb-16">
             <Reveal>
               <div className="flex items-center gap-2.5">
@@ -108,14 +108,14 @@ export default function AboutSections() {
                   aria-hidden="true"
                   className="h-2 w-2 rounded-full bg-[#C5AA76]"
                 />
-                <span className="text-[10px] font-medium tracking-[0.14em] text-[#F2F4F6] sm:text-xs">
+                <span className="text-[10px] font-medium tracking-[0.14em] text-[#c4ced8] sm:text-xs">
                   AL MOHAMMAD LAW OFFICE
                 </span>
               </div>
             </Reveal>
 
             <Reveal delay={150}>
-              <h1 className="mt-3 max-w-5xl text-balance text-3xl font-semibold leading-[1.3] tracking-tight text-[#F2F4F6] sm:mt-4 sm:text-4xl md:mt-6 md:text-6xl md:leading-[1.25] lg:text-7xl lg:leading-[1.2]">
+              <h1 className="mt-3 max-w-5xl text-balance text-3xl font-semibold leading-[1.3] tracking-tight text-[#c4ced8] sm:mt-4 sm:text-4xl md:mt-6 md:text-6xl md:leading-[1.25] lg:text-7xl lg:leading-[1.2]">
                 {ui.sections.about}
               </h1>
             </Reveal>
@@ -134,63 +134,71 @@ export default function AboutSections() {
       {/* PRACTICE AREAS */}
       <section
         aria-labelledby="practice-areas-title"
-        className="bg-[#F2F4F6] py-20 text-[#001C3A] sm:py-24 md:py-28 lg:py-36"
+        className="bg-[#c4ced8] py-20 text-[#001C3A] sm:py-24 md:py-28 lg:py-36"
       >
         <div className="page-container">
           <div className="mx-auto max-w-7xl">
-            <Reveal>
-              <h2
-                id="practice-areas-title"
-                className="text-2xl font-semibold leading-snug tracking-tight text-[#001C3A] sm:text-3xl md:text-4xl lg:text-6xl"
-              >
-                {ui.sections.practiceAreas}
-              </h2>
-            </Reveal>
+            <h2
+              id="practice-areas-title"
+              className="text-2xl font-semibold leading-snug tracking-tight text-[#001C3A] sm:text-3xl md:text-center md:text-4xl lg:text-6xl"
+            >
+              {ui.sections.practiceAreas}
+            </h2>
 
-            <ul className="mt-8 border-t border-[#001C3A]/20 sm:mt-12 md:mt-16 lg:mt-20">
-              {practiceAreas.map((area) => (
-                <li
-                  key={area.title}
-                  className="group border-b border-[#001C3A]/15"
-                >
-                  <Reveal>
-                    <article className="grid gap-4 py-5 sm:gap-6 sm:py-7 md:grid-cols-12 md:items-start md:gap-8 md:py-9 lg:py-11">
-                      <div className="min-w-0 md:col-span-5">
-                        <h3 className="text-lg font-semibold leading-relaxed tracking-tight text-[#001C3A] transition-colors duration-300 sm:text-xl md:text-2xl lg:text-3xl [@media(hover:hover)]:group-hover:text-[#B59863]">
-                          {area.title}
-                        </h3>
-                      </div>
+            <ul className="relative mt-10 sm:mt-14 md:mt-20">
+              {/* خط طلایی: کنار محتوا در موبایل و وسط در دسکتاپ */}
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-0 start-[3px] w-px bg-[#C5AA76] md:start-auto md:left-1/2 md:-translate-x-1/2"
+              />
 
-                      <div className="min-w-0 md:col-span-7">
-                        <ul className="grid grid-cols-1 gap-y-2 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-3 lg:gap-x-8">
-                          {area.items.map((item) => (
-                            <li
-                              key={item}
-                              className="flex min-w-0 items-start gap-2.5 text-sm leading-7 text-[#001C3A]/75 sm:gap-3 sm:text-base sm:leading-8"
-                            >
-                              <span
-                                aria-hidden="true"
-                                className="mt-[13px] h-px w-3 shrink-0 bg-[#C5AA76] transition-[width,background-color] duration-300 sm:w-4 [@media(hover:hover)]:group-hover:w-5 [@media(hover:hover)]:group-hover:bg-[#B59863]"
-                              />
-                              <span className="min-w-0 break-words">
-                                {item}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </article>
-                  </Reveal>
-                </li>
-              ))}
+              {practiceAreas.map((area, index) => {
+                const alt = index % 2 === 1;
+
+                return (
+                  <li
+                    key={area.title}
+                    className={`relative py-6 ps-8 md:w-1/2 md:py-9 ${
+                      alt ? "md:ms-auto md:ps-12" : "md:ps-0 md:pe-12"
+                    }`}
+                  >
+                    {/* نقطه روی خط */}
+                    <span
+                      aria-hidden="true"
+                      className={`absolute top-[2.15rem] start-0 h-[7px] w-[7px] rounded-full bg-[#C5AA76] md:top-[3.1rem] ${
+                        alt
+                          ? "md:-start-[3.5px]"
+                          : "md:start-auto md:-end-[3.5px]"
+                      }`}
+                    />
+
+                    <h3 className="text-lg font-semibold leading-relaxed tracking-tight text-[#001C3A] sm:text-xl md:text-2xl">
+                      {area.title}
+                    </h3>
+
+                    <ul className="mt-3 grid grid-cols-1 gap-y-2 sm:mt-4">
+                      {area.items.map((item) => (
+                        <li
+                          key={item}
+                          className="flex min-w-0 items-start gap-2.5 text-sm leading-7 text-[#001C3A]/75 sm:gap-3 sm:text-base sm:leading-8"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="mt-[13px] h-px w-3 shrink-0 bg-[#C5AA76] sm:w-4"
+                          />
+                          <span className="min-w-0 break-words">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              })}
             </ul>
 
             {practiceAreasNote && (
-              <Reveal>
-                <p className="mt-7 max-w-3xl border-s-2 border-[#C5AA76] py-1 ps-4 text-sm leading-7 text-[#001C3A]/75 sm:mt-10 sm:ps-6 sm:text-base sm:leading-8 md:mt-12 md:text-lg md:leading-9">
-                  {practiceAreasNote}
-                </p>
-              </Reveal>
+              <p className="mt-7 max-w-3xl border-s-2 border-[#C5AA76] py-1 ps-4 text-sm leading-7 text-[#001C3A]/75 sm:mt-10 sm:ps-6 sm:text-base sm:leading-8 md:mt-12 md:text-lg md:leading-9">
+                {practiceAreasNote}
+              </p>
             )}
           </div>
         </div>
@@ -199,7 +207,7 @@ export default function AboutSections() {
       {/* GOALS */}
       <section
         aria-labelledby="goals-title"
-        className="relative overflow-hidden bg-[#001C3A] py-14 text-[#F2F4F6] sm:py-20 md:py-24 lg:py-36"
+        className="relative overflow-hidden bg-[#001C3A] py-14 text-[#c4ced8] sm:py-20 md:py-24 lg:py-36"
       >
         <div
           aria-hidden="true"
@@ -216,7 +224,7 @@ export default function AboutSections() {
             <Reveal>
               <h2
                 id="goals-title"
-                className="max-w-3xl text-2xl font-semibold leading-snug tracking-tight text-[#F2F4F6] sm:text-3xl md:text-4xl lg:text-6xl"
+                className="max-w-3xl text-2xl font-semibold leading-snug tracking-tight text-[#c4ced8] sm:text-3xl md:text-4xl lg:text-6xl"
               >
                 {ui.sections.goals}
               </h2>
@@ -230,8 +238,8 @@ export default function AboutSections() {
                 >
                   <Reveal>
                     <article className="flex min-w-0 gap-3 py-5 sm:gap-5 sm:py-7 md:gap-6 md:py-9 lg:py-10">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm leading-7 text-[#C4CED8] transition-colors duration-300 sm:text-base sm:leading-8 md:text-lg md:leading-9 [@media(hover:hover)]:group-hover:text-[#F2F4F6]">
+                      <div className="min-w-0 flex-1"> text-[#C4CED8] transition-colors duration-300 sm:text-base sm:leading-8 md:text-lg
+                        <p className="text-sm leading-7 md:leading-9 [@media(hover:hover)]:group-hover:text-[#c4ced8]">
                           {goal}
                         </p>
 
