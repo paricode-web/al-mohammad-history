@@ -33,7 +33,7 @@ function Dot({
     <div
       data-timeline-dot
       data-line-passed="false"
-      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-[#F2F4F6]/20 bg-[#001C3A] text-sm font-semibold text-[#F2F4F6] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-[#C5AA76] data-[line-passed=true]:bg-[#C5AA76] data-[line-passed=true]:text-[#001C3A] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
+      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-[#F2F4F6]/20 bg-[#001C3A] text-sm font-semibold text-[#F2F4F6] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-[#C5AA76] data-[line-passed=true]:bg-[#C5AA76] data-[line-passed=true]:text-[#061F38] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
@@ -284,7 +284,7 @@ export default function Timeline() {
                         {item.paragraphs.map((paragraph, idx) => (
                           <p
                             key={idx}
-                            className={`mt-3 text-[15px] leading-7 ${TIMELINE_TEXT_COLOR} lg:transition-colors lg:duration-500 group-hover:text-[#F2F4F6] sm:mt-4 sm:text-base sm:leading-8`}
+                            className="mt-3 text-[15px] leading-7 text-[#C4CED8] lg:transition-colors lg:duration-500 group-hover:text-[#F2F4F6] sm:mt-4 sm:text-base sm:leading-8"
                           >
                             {paragraph}
                           </p>

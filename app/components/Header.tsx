@@ -16,7 +16,7 @@ const LANG_LABELS: Record<string, string> = {
 };
 
 const ITEM_CLASS =
-  "block px-4 py-2.5 text-sm font-semibold text-[#F2F4F6] transition-colors hover:bg-[#C5AA76]/15 hover:text-[#C5AA76]";
+  "block px-4 py-2.5 text-sm font-semibold text-[#F2F4F6] transition-colors hover:bg-[#C5AA76]/15 hover:text-[#B59863]";
 
 const NO_HAMBURGER_QUERY = "(min-width: 768px) and (max-width: 1439.98px)";
 
@@ -68,7 +68,7 @@ function Dropdown({
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[#F2F4F6] transition-colors hover:bg-[#C5AA76]/15 hover:text-[#C5AA76]"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[#F2F4F6] transition-colors hover:bg-[#C5AA76]/15 hover:text-[#B59863]"
       >
         {trigger}
 
@@ -305,7 +305,7 @@ export default function Header() {
               <a
                 key={item.href}
                 href={item.href}
-                className="py-2 text-base font-semibold transition-colors hover:text-[#C5AA76]"
+                className="py-2 text-base font-semibold transition-colors hover:text-[#B59863]"
               >
                 {item.label}
               </a>
@@ -333,7 +333,7 @@ export default function Header() {
               aria-expanded={open}
               aria-controls="site-menu"
               onClick={() => setOpen((v) => !v)}
-              className="-me-2 flex h-11 w-11 items-center justify-center text-[#F2F4F6] transition-colors hover:text-[#C5AA76] md:hidden xl:flex"
+              className="-me-2 flex h-11 w-11 items-center justify-center text-[#F2F4F6] transition-colors hover:text-[#B59863] md:hidden xl:flex"
             >
               <span className="flex w-7 flex-col gap-[7px]">
                 <span
@@ -387,7 +387,7 @@ export default function Header() {
                   style={{
                     transitionDelay: open ? `${350 + i * 70}ms` : "0ms",
                   }}
-                  className={`group flex items-center justify-between break-words py-3 text-2xl font-extrabold transition-all duration-500 hover:text-[#C5AA76] sm:text-3xl md:text-4xl lg:text-5xl ${
+                  className={`group flex items-center justify-between break-words py-3 text-2xl font-extrabold transition-all duration-500 hover:text-[#B59863] sm:text-3xl md:text-4xl lg:text-5xl ${
                     open
                       ? "translate-y-0 opacity-100"
                       : "translate-y-6 opacity-0"
@@ -434,7 +434,7 @@ export default function Header() {
                   type="search"
                   aria-label={ui.searchPlaceholder}
                   placeholder={ui.searchPlaceholder}
-                  className="w-full min-w-0 bg-transparent text-sm text-[#F2F4F6] outline-none placeholder:text-[#F2F4F6]/60 md:text-base"
+                  className="w-full min-w-0 bg-transparent text-sm text-[#F2F4F6] outline-none placeholder:text-[#C4CED8] md:text-base"
                 />
 
                 <svg
@@ -455,7 +455,7 @@ export default function Header() {
               <div className="flex flex-col gap-4 text-sm md:text-xl">
                 <a
                   href={`mailto:${ui.contact.email}`}
-                  className="break-all transition-colors hover:text-[#C5AA76]"
+                  className="break-all transition-colors hover:text-[#B59863]"
                 >
                   {ui.contact.email}
                 </a>
@@ -463,7 +463,7 @@ export default function Header() {
                 <a
                   href={ui.contact.phoneHref}
                   dir="ltr"
-                  className="w-fit transition-colors hover:text-[#C5AA76]"
+                  className="w-fit transition-colors hover:text-[#B59863]"
                 >
                   {ui.contact.phone}
                 </a>

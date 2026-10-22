@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -154,8 +153,10 @@ export default function AboutSections() {
                 return (
                   <li
                     key={area.title}
-                    className={`relative py-6 ps-8 md:w-1/2 md:py-9 ${
-                      alt ? "md:ms-auto md:ps-12" : "md:ps-0 md:pe-12"
+                    className={`relative py-6 ps-6 md:w-1/2 md:py-9 ${
+                      alt
+                        ? "md:ms-auto md:ps-6 lg:ps-8"
+                        : "md:ps-0 md:pe-6 md:text-end lg:pe-8"
                     }`}
                   >
                     <span
@@ -175,7 +176,9 @@ export default function AboutSections() {
                       {area.items.map((item) => (
                         <li
                           key={item}
-                          className="flex min-w-0 items-start gap-2.5 text-sm leading-7 text-[#F2F4F6]/75 sm:gap-3 sm:text-base sm:leading-8"
+                          className={`flex min-w-0 items-start gap-2.5 text-sm leading-7 text-[#C4CED8] sm:gap-3 sm:text-base sm:leading-8 ${
+                            alt ? "" : "md:flex-row-reverse"
+                          }`}
                         >
                           <span
                             aria-hidden="true"
@@ -192,7 +195,7 @@ export default function AboutSections() {
             </ul>
 
             {practiceAreasNote && (
-              <p className="mt-7 max-w-3xl border-s-2 border-[#C5AA76] py-1 ps-4 text-sm leading-7 text-[#F2F4F6]/75 sm:mt-10 sm:ps-6 sm:text-base sm:leading-8 md:mt-12 md:text-lg md:leading-9">
+              <p className="mt-7 max-w-3xl border-s-2 border-[#C5AA76] py-1 ps-4 text-sm leading-7 text-[#C4CED8] sm:mt-10 sm:ps-6 sm:text-base sm:leading-8 md:mt-12 md:text-lg md:leading-9">
                 {practiceAreasNote}
               </p>
             )}
@@ -256,7 +259,7 @@ export default function AboutSections() {
 
             <Reveal>
               <div className="mt-10 border-t border-[#F2F4F6]/20 pt-4 sm:mt-14 sm:pt-5 md:mt-20">
-                <p className="text-[10px] tracking-[0.12em] text-[#F2F4F6]/60 sm:text-xs">
+                <p className="text-[10px] tracking-[0.12em] text-[#C4CED8] sm:text-xs">
                   AL MOHAMMAD LAW OFFICE
                 </p>
               </div>

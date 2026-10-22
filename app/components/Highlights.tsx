@@ -118,7 +118,7 @@ function GlassCard({ h, index }: { h: Highlight; index: number }) {
                 </h4>
               )}
 
-              <p className="text-sm leading-7 text-[#F2F4F6]/75 sm:text-base sm:leading-8">
+              <p className="text-sm leading-7 text-[#C4CED8] sm:text-base sm:leading-8">
                 {block.text}
               </p>
             </div>
