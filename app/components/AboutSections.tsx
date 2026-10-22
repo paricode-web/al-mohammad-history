@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocale } from "@/i18n/LocaleProvider";
 
-// مسیر عکس Hero (داخل public/images)
 const HERO_IMAGE = "/images/about-hero.jpg";
 
 function Reveal({
@@ -28,7 +27,6 @@ function Reveal({
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    // نمایش فوری در موبایل برای کاهش انیمیشن‌های اسکرول
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
 
     if (reduceMotion || isMobile || !("IntersectionObserver" in window)) {
@@ -50,6 +48,7 @@ function Reveal({
     );
 
     observer.observe(el);
+
     return () => observer.disconnect();
   }, []);
 
@@ -70,18 +69,18 @@ export default function AboutSections() {
   const { ui, practiceAreas, practiceAreasNote, goals } =
     useLocale().content;
 
-  // زوم آرام عکس هنگام لود (فقط دسکتاپ)
   const [heroReady, setHeroReady] = useState(false);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setHeroReady(true));
+
     return () => cancelAnimationFrame(id);
   }, []);
 
   return (
-    <main className="relative isolate overflow-hidden bg-[#001C3A] text-[#c4ced8]">
+    <main className="relative isolate overflow-hidden bg-[#001C3A] text-[#F2F4F6]">
       {/* HERO */}
-      <section className="px-3 pb-4 pt-24 sm:px-4 sm:pb-6 sm:pt-28 lg:px-5">
+      <section className="bg-[#001C3A] px-3 pb-4 pt-24 text-[#F2F4F6] sm:px-4 sm:pb-6 sm:pt-28 lg:px-5">
         <div className="relative mx-auto h-[72svh] min-h-[440px] w-full max-w-[1600px] overflow-hidden rounded-2xl bg-[#001C3A] sm:h-[60svh] sm:min-h-[460px] sm:rounded-3xl md:h-[calc(100svh-8rem)] md:min-h-[560px]">
           <Image
             src={HERO_IMAGE}
@@ -94,13 +93,11 @@ export default function AboutSections() {
             }`}
           />
 
-          {/* گرادیان روی عکس */}
           <div
             aria-hidden="true"
             className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,28,58,0.7)_0%,rgba(0,28,58,0.2)_28%,transparent_50%)] md:bg-[linear-gradient(to_top,rgba(0,28,58,0.9)_0%,rgba(0,28,58,0.35)_50%,rgba(0,28,58,0.1)_100%)]"
           />
 
-          {/* محتوای Hero */}
           <div className="absolute inset-x-0 bottom-0 flex flex-col items-center px-5 pb-6 text-center sm:px-8 sm:pb-8 md:pb-12 lg:pb-16">
             <Reveal>
               <div className="flex items-center gap-2.5">
@@ -108,19 +105,19 @@ export default function AboutSections() {
                   aria-hidden="true"
                   className="h-2 w-2 rounded-full bg-[#C5AA76]"
                 />
-                <span className="text-[10px] font-medium tracking-[0.14em] text-[#c4ced8] sm:text-xs">
+
+                <span className="text-[10px] font-medium tracking-[0.14em] text-[#F2F4F6] sm:text-xs">
                   AL MOHAMMAD LAW OFFICE
                 </span>
               </div>
             </Reveal>
 
             <Reveal delay={150}>
-              <h1 className="mt-3 max-w-5xl text-balance text-3xl font-semibold leading-[1.3] tracking-tight text-[#c4ced8] sm:mt-4 sm:text-4xl md:mt-6 md:text-6xl md:leading-[1.25] lg:text-7xl lg:leading-[1.2]">
+              <h1 className="mt-3 max-w-5xl text-balance text-3xl font-semibold leading-[1.3] tracking-tight text-[#F2F4F6] sm:mt-4 sm:text-4xl md:mt-6 md:text-6xl md:leading-[1.25] lg:text-7xl lg:leading-[1.2]">
                 {ui.sections.about}
               </h1>
             </Reveal>
 
-            {/* خط تزئینی فقط از md به بالا */}
             <Reveal delay={300} className="hidden md:block">
               <span
                 aria-hidden="true"
@@ -134,19 +131,18 @@ export default function AboutSections() {
       {/* PRACTICE AREAS */}
       <section
         aria-labelledby="practice-areas-title"
-        className="bg-[#c4ced8] py-20 text-[#001C3A] sm:py-24 md:py-28 lg:py-36"
+        className="bg-[#001C3A] py-20 text-[#F2F4F6] sm:py-24 md:py-28 lg:py-36"
       >
         <div className="page-container">
           <div className="mx-auto max-w-7xl">
             <h2
               id="practice-areas-title"
-              className="text-2xl font-semibold leading-snug tracking-tight text-[#001C3A] sm:text-3xl md:text-center md:text-4xl lg:text-6xl"
+              className="text-2xl font-semibold leading-snug tracking-tight text-[#F2F4F6] sm:text-3xl md:text-center md:text-4xl lg:text-6xl"
             >
               {ui.sections.practiceAreas}
             </h2>
 
             <ul className="relative mt-10 sm:mt-14 md:mt-20">
-              {/* خط طلایی: کنار محتوا در موبایل و وسط در دسکتاپ */}
               <span
                 aria-hidden="true"
                 className="absolute inset-y-0 start-[3px] w-px bg-[#C5AA76] md:start-auto md:left-1/2 md:-translate-x-1/2"
@@ -162,7 +158,6 @@ export default function AboutSections() {
                       alt ? "md:ms-auto md:ps-12" : "md:ps-0 md:pe-12"
                     }`}
                   >
-                    {/* نقطه روی خط */}
                     <span
                       aria-hidden="true"
                       className={`absolute top-[2.15rem] start-0 h-[7px] w-[7px] rounded-full bg-[#C5AA76] md:top-[3.1rem] ${
@@ -172,7 +167,7 @@ export default function AboutSections() {
                       }`}
                     />
 
-                    <h3 className="text-lg font-semibold leading-relaxed tracking-tight text-[#001C3A] sm:text-xl md:text-2xl">
+                    <h3 className="text-lg font-semibold leading-relaxed tracking-tight text-[#F2F4F6] sm:text-xl md:text-2xl">
                       {area.title}
                     </h3>
 
@@ -180,12 +175,13 @@ export default function AboutSections() {
                       {area.items.map((item) => (
                         <li
                           key={item}
-                          className="flex min-w-0 items-start gap-2.5 text-sm leading-7 text-[#001C3A]/75 sm:gap-3 sm:text-base sm:leading-8"
+                          className="flex min-w-0 items-start gap-2.5 text-sm leading-7 text-[#F2F4F6]/75 sm:gap-3 sm:text-base sm:leading-8"
                         >
                           <span
                             aria-hidden="true"
                             className="mt-[13px] h-px w-3 shrink-0 bg-[#C5AA76] sm:w-4"
                           />
+
                           <span className="min-w-0 break-words">{item}</span>
                         </li>
                       ))}
@@ -196,7 +192,7 @@ export default function AboutSections() {
             </ul>
 
             {practiceAreasNote && (
-              <p className="mt-7 max-w-3xl border-s-2 border-[#C5AA76] py-1 ps-4 text-sm leading-7 text-[#001C3A]/75 sm:mt-10 sm:ps-6 sm:text-base sm:leading-8 md:mt-12 md:text-lg md:leading-9">
+              <p className="mt-7 max-w-3xl border-s-2 border-[#C5AA76] py-1 ps-4 text-sm leading-7 text-[#F2F4F6]/75 sm:mt-10 sm:ps-6 sm:text-base sm:leading-8 md:mt-12 md:text-lg md:leading-9">
                 {practiceAreasNote}
               </p>
             )}
@@ -207,7 +203,7 @@ export default function AboutSections() {
       {/* GOALS */}
       <section
         aria-labelledby="goals-title"
-        className="relative overflow-hidden bg-[#001C3A] py-14 text-[#c4ced8] sm:py-20 md:py-24 lg:py-36"
+        className="relative overflow-hidden bg-[#001C3A] py-14 text-[#F2F4F6] sm:py-20 md:py-24 lg:py-36"
       >
         <div
           aria-hidden="true"
@@ -224,7 +220,7 @@ export default function AboutSections() {
             <Reveal>
               <h2
                 id="goals-title"
-                className="max-w-3xl text-2xl font-semibold leading-snug tracking-tight text-[#c4ced8] sm:text-3xl md:text-4xl lg:text-6xl"
+                className="max-w-3xl text-2xl font-semibold leading-snug tracking-tight text-[#F2F4F6] sm:text-3xl md:text-4xl lg:text-6xl"
               >
                 {ui.sections.goals}
               </h2>
@@ -234,16 +230,16 @@ export default function AboutSections() {
               {goals.map((goal) => (
                 <li
                   key={goal}
-                  className="group min-w-0 border-t border-[#C4CED8]/20"
+                  className="group min-w-0 border-t border-[#F2F4F6]/20"
                 >
                   <Reveal>
                     <article className="flex min-w-0 gap-3 py-5 sm:gap-5 sm:py-7 md:gap-6 md:py-9 lg:py-10">
-                      <div className="min-w-0 flex-1"> text-[#C4CED8] transition-colors duration-300 sm:text-base sm:leading-8 md:text-lg
-                        <p className="text-sm leading-7 md:leading-9 [@media(hover:hover)]:group-hover:text-[#c4ced8]">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm leading-7 text-[#F2F4F6] transition-colors duration-300 sm:text-base sm:leading-8 md:text-lg">
                           {goal}
                         </p>
 
-                        <div className="mt-4 h-px w-0 bg-[#C5AA76] transition-[width] duration-500 sm:mt-5 [@media(hover:hover)]:group-hover:w-12" />
+                        <div className="mt-4 h-px w-0 bg-[#B59863] transition-[width] duration-500 sm:mt-5 [@media(hover:hover)]:group-hover:w-12" />
                       </div>
 
                       <span
@@ -259,8 +255,8 @@ export default function AboutSections() {
             </ol>
 
             <Reveal>
-              <div className="mt-10 border-t border-[#C4CED8]/20 pt-4 sm:mt-14 sm:pt-5 md:mt-20">
-                <p className="text-[10px] tracking-[0.12em] text-[#C4CED8]/60 sm:text-xs">
+              <div className="mt-10 border-t border-[#F2F4F6]/20 pt-4 sm:mt-14 sm:pt-5 md:mt-20">
+                <p className="text-[10px] tracking-[0.12em] text-[#F2F4F6]/60 sm:text-xs">
                   AL MOHAMMAD LAW OFFICE
                 </p>
               </div>

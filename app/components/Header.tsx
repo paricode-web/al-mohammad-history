@@ -1,4 +1,5 @@
 "use client";
+
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -14,11 +15,9 @@ const LANG_LABELS: Record<string, string> = {
   ar: "العربية",
 };
 
-/** آیتم دراپ‌داون‌ها: padding یکسان در همه‌جا + رنگ متن #c4ced8 و hover طلایی */
 const ITEM_CLASS =
-  "block px-4 py-2.5 text-sm font-semibold text-[#c4ced8] transition-colors hover:bg-[#c4ced8]/10 hover:text-accent";
+  "block px-4 py-2.5 text-sm font-semibold text-[#F2F4F6] transition-colors hover:bg-[#C5AA76]/15 hover:text-[#C5AA76]";
 
-/** بین md و xl همبرگر مخفی است (breakpoint xl در globals.css برابر ۱۴۴۰px است) */
 const NO_HAMBURGER_QUERY = "(min-width: 768px) and (max-width: 1439.98px)";
 
 function Dropdown({
@@ -69,7 +68,7 @@ function Dropdown({
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[#c4ced8] transition-colors hover:bg-[#c4ced8]/10"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[#F2F4F6] transition-colors hover:bg-[#C5AA76]/15 hover:text-[#C5AA76]"
       >
         {trigger}
 
@@ -89,9 +88,8 @@ function Dropdown({
         </svg>
       </button>
 
-      {/* پنل دراپ‌داون: بدون border */}
       <div
-        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-navy py-1 text-[#c4ced8] shadow-lg shadow-black/30 transition-all duration-200 ${panelClassName} ${
+        className={`absolute end-0 z-50 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl bg-[#001C3A] py-1 text-[#F2F4F6] shadow-lg shadow-black/30 transition-all duration-200 ${panelClassName} ${
           dropUp ? "bottom-full mb-2" : "top-full mt-2"
         } ${
           open
@@ -206,7 +204,9 @@ function LangDropdown({
             aria-current={l === current ? "true" : undefined}
             onClick={close}
             className={`${ITEM_CLASS} ${
-              l === current ? "bg-[#c4ced8]/10 !text-accent" : ""
+              l === current
+                ? "bg-[#C5AA76]/15 !text-[#C5AA76]"
+                : ""
             }`}
           >
             {LANG_LABELS[l] ?? l.toUpperCase()}
@@ -224,7 +224,6 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // قفل اسکرول بدنه وقتی منو باز است
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
 
@@ -233,7 +232,6 @@ export default function Header() {
     };
   }, [open]);
 
-  // بستن منو با Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -244,7 +242,6 @@ export default function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // اگر منو باز بود و عرض صفحه به محدوده‌ای رفت که همبرگر ندارد، منو بسته شود
   useEffect(() => {
     const mq = window.matchMedia(NO_HAMBURGER_QUERY);
 
@@ -257,7 +254,6 @@ export default function Header() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  // فقط وقتی از آستانه رد شد state عوض می‌شود
   useEffect(() => {
     let last = window.scrollY > 40;
 
@@ -279,13 +275,12 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 bg-navy text-[#c4ced8]">
+      <header className="fixed inset-x-0 top-0 z-50 bg-[#001C3A] text-[#F2F4F6]">
         <div
           className={`page-container flex items-center justify-between gap-6 transition-[height] duration-500 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:gap-12 ${
             scrolled ? "h-16 md:h-20" : "h-20 md:h-24"
           }`}
         >
-          {/* لوگو */}
           <a
             href={`/${locale}`}
             className="relative block h-10 w-[120px] shrink-0 md:h-12 md:w-[150px]"
@@ -302,7 +297,7 @@ export default function Header() {
 
           <nav
             aria-label={ui.openMenu}
-            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-[#c4ced8] transition-opacity duration-300 xl:flex 2xl:gap-10 ${
+            className={`hidden items-center justify-center gap-8 whitespace-nowrap text-[#F2F4F6] transition-opacity duration-300 xl:flex 2xl:gap-10 ${
               open ? "invisible opacity-0" : "opacity-100"
             }`}
           >
@@ -310,14 +305,14 @@ export default function Header() {
               <a
                 key={item.href}
                 href={item.href}
-                className="py-2 text-base font-semibold transition-opacity hover:opacity-70"
+                className="py-2 text-base font-semibold transition-colors hover:text-[#C5AA76]"
               >
                 {item.label}
               </a>
             ))}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 text-[#c4ced8] xl:justify-self-end">
+          <div className="flex shrink-0 items-center gap-2 text-[#F2F4F6] xl:justify-self-end">
             <div
               className={`hidden items-center gap-2 transition-opacity duration-300 md:flex ${
                 open ? "invisible opacity-0" : "opacity-100"
@@ -332,14 +327,13 @@ export default function Header() {
               <LangDropdown current={locale} />
             </div>
 
-            {/* همبرگر: موبایل و دسکتاپ بزرگ؛ بین md و xl دراپ‌داون منو جایش را می‌گیرد */}
             <button
               type="button"
               aria-label={open ? ui.closeMenu : ui.openMenu}
               aria-expanded={open}
               aria-controls="site-menu"
               onClick={() => setOpen((v) => !v)}
-              className="-me-2 flex h-11 w-11 items-center justify-center md:hidden xl:flex"
+              className="-me-2 flex h-11 w-11 items-center justify-center text-[#F2F4F6] transition-colors hover:text-[#C5AA76] md:hidden xl:flex"
             >
               <span className="flex w-7 flex-col gap-[7px]">
                 <span
@@ -365,7 +359,6 @@ export default function Header() {
         </div>
       </header>
 
-      {/* منوی دو پنله */}
       <div
         id="site-menu"
         data-lenis-prevent
@@ -377,11 +370,9 @@ export default function Header() {
         }}
         className="fixed inset-0 z-40 overflow-x-hidden overflow-y-auto"
       >
-        {/* موبایل: دو پنل زیر هم | md به بالا: دو پنل کنار هم */}
         <div className="flex min-h-full flex-col md:flex-row">
-          {/* پنل روشن: رنگ #c4ced8 (متن آن تیره می‌ماند تا خوانا باشد) */}
           <div
-            className={`relative w-full shrink-0 bg-[#c4ced8] text-navy will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
+            className={`relative w-full shrink-0 bg-[#001C3A] text-[#F2F4F6] will-change-transform transition-transform duration-700 ${EASE} md:w-1/2 lg:w-auto lg:basis-[40%] lg:min-w-[380px] ${
               open
                 ? "translate-x-0"
                 : "rtl:translate-x-full ltr:-translate-x-full"
@@ -396,7 +387,7 @@ export default function Header() {
                   style={{
                     transitionDelay: open ? `${350 + i * 70}ms` : "0ms",
                   }}
-                  className={`group flex items-center justify-between break-words py-3 text-2xl font-extrabold transition-all duration-500 sm:text-3xl md:text-4xl lg:text-5xl ${
+                  className={`group flex items-center justify-between break-words py-3 text-2xl font-extrabold transition-all duration-500 hover:text-[#C5AA76] sm:text-3xl md:text-4xl lg:text-5xl ${
                     open
                       ? "translate-y-0 opacity-100"
                       : "translate-y-6 opacity-0"
@@ -416,19 +407,17 @@ export default function Header() {
               ))}
             </nav>
 
-            {/* خط عمودی روی درز دو پنل */}
             <span
               aria-hidden
               style={{ transitionDelay: open ? "650ms" : "0ms" }}
-              className={`pointer-events-none absolute inset-y-0 end-0 hidden w-0.5 origin-top bg-accent md:block transition-transform duration-500 ${
+              className={`pointer-events-none absolute inset-y-0 end-0 hidden w-0.5 origin-top bg-[#C5AA76] md:block transition-transform duration-500 ${
                 open ? "scale-y-100" : "scale-y-0"
               }`}
             />
           </div>
 
-          {/* پنل تیره: همه متن‌ها #c4ced8 */}
           <div
-            className={`w-full min-w-0 flex-1 bg-navy text-[#c4ced8] will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
+            className={`w-full min-w-0 flex-1 bg-[#001C3A] text-[#F2F4F6] will-change-transform transition-transform duration-700 ${EASE} md:-ms-px md:w-1/2 md:flex-none lg:w-auto lg:flex-1 ${
               open
                 ? "translate-x-0"
                 : "rtl:-translate-x-full ltr:translate-x-full"
@@ -440,12 +429,12 @@ export default function Header() {
                 open ? "opacity-100" : "opacity-0"
               }`}
             >
-              <div className="flex items-center gap-3 rounded-full bg-[#c4ced8]/10 px-4 py-3 md:gap-4 md:px-6 md:py-4">
+              <div className="flex items-center gap-3 rounded-full bg-[#F2F4F6]/10 px-4 py-3 md:gap-4 md:px-6 md:py-4">
                 <input
                   type="search"
                   aria-label={ui.searchPlaceholder}
                   placeholder={ui.searchPlaceholder}
-                  className="w-full min-w-0 bg-transparent text-sm text-[#c4ced8] outline-none placeholder:text-[#c4ced8]/60 md:text-base"
+                  className="w-full min-w-0 bg-transparent text-sm text-[#F2F4F6] outline-none placeholder:text-[#F2F4F6]/60 md:text-base"
                 />
 
                 <svg
@@ -466,7 +455,7 @@ export default function Header() {
               <div className="flex flex-col gap-4 text-sm md:text-xl">
                 <a
                   href={`mailto:${ui.contact.email}`}
-                  className="break-all transition-opacity hover:opacity-70"
+                  className="break-all transition-colors hover:text-[#C5AA76]"
                 >
                   {ui.contact.email}
                 </a>
@@ -474,7 +463,7 @@ export default function Header() {
                 <a
                   href={ui.contact.phoneHref}
                   dir="ltr"
-                  className="w-fit transition-opacity hover:opacity-70"
+                  className="w-fit transition-colors hover:text-[#C5AA76]"
                 >
                   {ui.contact.phone}
                 </a>

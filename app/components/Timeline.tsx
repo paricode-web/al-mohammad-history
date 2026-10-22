@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
@@ -9,7 +8,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
-const TIMELINE_TEXT_COLOR = "text-[#C4CED8]";
+const TIMELINE_TEXT_COLOR = "text-[#F2F4F6]";
 
 function Dot({
   label,
@@ -34,7 +33,7 @@ function Dot({
     <div
       data-timeline-dot
       data-line-passed="false"
-      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-[#C4CED8] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-accent data-[line-passed=true]:bg-accent data-[line-passed=true]:text-[#061F38] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
+      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-[#F2F4F6]/20 bg-[#001C3A] text-sm font-semibold text-[#F2F4F6] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-[#C5AA76] data-[line-passed=true]:bg-[#C5AA76] data-[line-passed=true]:text-[#001C3A] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
@@ -66,8 +65,6 @@ export default function Timeline() {
 
       if (!media.matches) return;
 
-      // خط محرک روی ۶۶٪ ارتفاع صفحه قرار می‌گیرد.
-      // ۳۲ پیکسل، نصف ارتفاع دایره موبایل است.
       const bottomMargin = window.innerHeight * 0.34 + 32;
 
       observer = new IntersectionObserver(
@@ -97,7 +94,6 @@ export default function Timeline() {
         .forEach((dot) => observer!.observe(dot));
     };
 
-    // فقط هنگام تغییر عرض صفحه observer دوباره ساخته می‌شود.
     const handleResize = () => {
       if (window.innerWidth === lastWidth) return;
 
@@ -170,12 +166,12 @@ export default function Timeline() {
     <section
       id="history"
       ref={sectionRef}
-      className="overflow-hidden bg-navy py-16 text-light sm:py-24 lg:py-32"
+      className="overflow-hidden bg-[#001C3A] py-16 text-[#F2F4F6] sm:py-24 lg:py-32"
     >
       <div className="page-container">
         <div className="relative mx-auto max-w-5xl">
           {/* خط مرکزی تایم‌لاین */}
-          <div className="absolute bottom-0 start-8 top-0 w-px bg-transparent lg:start-1/2 lg:bg-light/10">
+          <div className="absolute bottom-0 start-8 top-0 w-px bg-transparent lg:start-1/2 lg:bg-[#F2F4F6]/10">
             <span
               data-line-anchor="timeline-start"
               aria-hidden="true"
@@ -231,12 +227,12 @@ export default function Timeline() {
                     <>
                       <span
                         aria-hidden="true"
-                        className="absolute inset-y-0 z-0 hidden w-0.5 bg-accent/40 lg:start-1/2 lg:block rtl:translate-x-1/2 ltr:-translate-x-1/2"
+                        className="absolute inset-y-0 z-0 hidden w-0.5 bg-[#C5AA76]/40 lg:start-1/2 lg:block rtl:translate-x-1/2 ltr:-translate-x-1/2"
                       />
 
                       <span
                         aria-hidden="true"
-                        className={`absolute inset-y-0 z-0 w-0.5 bg-accent/40 lg:hidden ${
+                        className={`absolute inset-y-0 z-0 w-0.5 bg-[#C5AA76]/40 lg:hidden ${
                           railStart
                             ? "start-[calc(2rem-1px)]"
                             : "end-[calc(2rem-1px)]"
@@ -276,7 +272,7 @@ export default function Timeline() {
                       <div className="timeline-content">
                         <span
                           aria-hidden="true"
-                          className="block h-px w-8 bg-accent lg:transition-all lg:duration-500 group-hover:w-16"
+                          className="block h-px w-8 bg-[#C5AA76] lg:transition-all lg:duration-500 group-hover:w-16"
                         />
 
                         <h3
@@ -288,7 +284,7 @@ export default function Timeline() {
                         {item.paragraphs.map((paragraph, idx) => (
                           <p
                             key={idx}
-                            className={`mt-3 text-[15px] leading-7 ${TIMELINE_TEXT_COLOR} lg:transition-colors lg:duration-500 group-hover:text-[#C4CED8] sm:mt-4 sm:text-base sm:leading-8`}
+                            className={`mt-3 text-[15px] leading-7 ${TIMELINE_TEXT_COLOR} lg:transition-colors lg:duration-500 group-hover:text-[#F2F4F6] sm:mt-4 sm:text-base sm:leading-8`}
                           >
                             {paragraph}
                           </p>
@@ -299,7 +295,7 @@ export default function Timeline() {
 
                   {/* تصویر رویداد */}
                   <div className={textFirst ? "lg:order-2" : "lg:order-1"}>
-                    <div className="group/img overflow-hidden rounded-xl border border-light/10 bg-light/5">
+                    <div className="group/img overflow-hidden rounded-xl border border-[#F2F4F6]/10 bg-[#F2F4F6]/5">
                       {item.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -307,16 +303,14 @@ export default function Timeline() {
                           alt={item.title}
                           loading="lazy"
                           onLoad={() => {
-                            if (
-                              window.matchMedia(DESKTOP_QUERY).matches
-                            ) {
+                            if (window.matchMedia(DESKTOP_QUERY).matches) {
                               ScrollTrigger.refresh();
                             }
                           }}
                           className="aspect-[4/3] w-full object-cover opacity-90 saturate-75 lg:transition lg:duration-700 group-hover/img:scale-105 group-hover/img:opacity-100 group-hover/img:saturate-100 lg:aspect-auto"
                         />
                       ) : (
-                        <div className="aspect-[4/3] w-full bg-light/5" />
+                        <div className="aspect-[4/3] w-full bg-[#F2F4F6]/5" />
                       )}
                     </div>
                   </div>

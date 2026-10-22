@@ -1,3 +1,4 @@
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -9,42 +10,50 @@
 }
 
 :root {
-  /* ---------- Brand palette (Figma: alemohammad-brandbook-v3-blue) ---------- */
+  /* ---------- Brand palette ---------- */
+  --brand-navy: #001c3a;
+  --brand-text: #f2f4f6;
+  --brand-text-secondary: #f2f4f6;
+  --brand-accent: #c5aa76;
+  --brand-accent-hover: #b59863;
+  --brand-on-accent: #001c3a;
 
-  /* ---------- Brand palette (Figma: alemohammad-brandbook-v3-blue) ---------- */
-  --brand-navy: #001c3a;           /* Base background */
- --brand-text: #c4ced8;           /* Text color */           /* Text color */
-  --brand-text-secondary: #c4ced8; /* Secondary text gray */
-  --brand-accent: #c5aa76;         /* Buttons and CTA (gold) */
-  --brand-accent-hover: #b59863;   /* Gold hover */
-  --brand-on-accent: #061f38;      /* Text on gold buttons */
-      /* Text on gold buttons */
-
-  /* ---------- shadcn tokens mapped to the brand ---------- */
+  /* ---------- shadcn tokens ---------- */
   --background: var(--brand-navy);
   --foreground: var(--brand-text);
+
   --card: var(--brand-navy);
   --card-foreground: var(--brand-text);
+
   --popover: var(--brand-navy);
   --popover-foreground: var(--brand-text);
+
   --primary: var(--brand-accent);
   --primary-foreground: var(--brand-on-accent);
+
   --secondary: color-mix(in srgb, var(--brand-text) 8%, var(--brand-navy));
   --secondary-foreground: var(--brand-text);
+
   --muted: color-mix(in srgb, var(--brand-text) 8%, var(--brand-navy));
   --muted-foreground: var(--brand-text-secondary);
+
   --accent: var(--brand-accent);
   --accent-foreground: var(--brand-on-accent);
+
   --destructive: oklch(0.704 0.191 22.216);
+
   --border: color-mix(in srgb, var(--brand-text) 12%, transparent);
   --input: color-mix(in srgb, var(--brand-text) 15%, transparent);
   --ring: var(--brand-accent);
+
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+
   --radius: 0.625rem;
+
   --sidebar: var(--brand-navy);
   --sidebar-foreground: var(--brand-text);
   --sidebar-primary: var(--brand-accent);
@@ -59,16 +68,16 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  /* Brand: bg-navy, text-light, text-mist, bg-accent, hover:bg-accent-hover, text-on-accent */
+  /* Brand utilities */
   --color-navy: var(--brand-navy);
-  --color-header: var(--brand-navy); /* alias قدیمی؛ همان navy */
+  --color-header: var(--brand-navy);
   --color-light: var(--brand-text);
   --color-mist: var(--brand-text-secondary);
   --color-accent: var(--brand-accent);
   --color-accent-hover: var(--brand-accent-hover);
   --color-on-accent: var(--brand-on-accent);
 
-  /* Fonts (next/font variables) */
+  /* Fonts */
   --font-sans: var(--font-shabnam), var(--font-dm-sans);
   --font-heading: var(--font-shabnam), var(--font-dm-sans);
 
@@ -81,26 +90,34 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+
   --color-accent-foreground: var(--accent-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
+
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
+
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -117,10 +134,10 @@
 
   html {
     @apply font-sans;
-    color-scheme: dark; /* اسکرول‌بار و المان‌های فرم هم تیره می‌شوند */
+    color-scheme: dark;
     scroll-behavior: smooth;
-    scrollbar-gutter: stable; /* جلوگیری از پرش صفحه هنگام قفل اسکرول منو */
-    scroll-padding-top: 6rem; /* لینک‌های #anchor زیر هدر ثابت نروند */
+    scrollbar-gutter: stable;
+    scroll-padding-top: 6rem;
   }
 
   body {

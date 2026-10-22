@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -56,17 +57,18 @@ const footerText = {
 
 function InlineLinks({ items }: { items: FooterLink[] }) {
   return (
-    <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm leading-7">
+    <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm leading-7 text-[#F2F4F6]">
       {items.map((item) => {
         const external = /^https?:\/\//.test(item.href);
 
         return (
           <li key={item.label}>
-            {external || item.href.startsWith("mailto:") ||
+            {external ||
+            item.href.startsWith("mailto:") ||
             item.href.startsWith("tel:") ? (
               <a
                 href={item.href}
-                className="transition-opacity hover:opacity-60"
+                className="transition-colors duration-200 hover:text-[#B59863]"
                 dir="auto"
               >
                 {item.label}
@@ -74,7 +76,7 @@ function InlineLinks({ items }: { items: FooterLink[] }) {
             ) : (
               <Link
                 href={item.href}
-                className="transition-opacity hover:opacity-60"
+                className="transition-colors duration-200 hover:text-[#B59863]"
                 dir="auto"
               >
                 {item.label}
@@ -95,12 +97,20 @@ function SocialLinks() {
       icon: (
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect
-            x="3" y="3" width="18" height="18" rx="5"
-            stroke="currentColor" strokeWidth="1.8"
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="5"
+            stroke="currentColor"
+            strokeWidth="1.8"
           />
           <circle
-            cx="12" cy="12" r="4"
-            stroke="currentColor" strokeWidth="1.8"
+            cx="12"
+            cy="12"
+            r="4"
+            stroke="currentColor"
+            strokeWidth="1.8"
           />
           <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
         </svg>
@@ -128,7 +138,7 @@ function SocialLinks() {
           <rect x="2" y="2" width="20" height="20" rx="2" />
           <path
             d="M6.5 10v7M6.5 7v.1M10.5 17v-7h3v1.2c.5-.9 1.3-1.4 2.4-1.4 2 0 3.1 1.3 3.1 3.7V17h-3v-3.2c0-1.1-.4-1.7-1.4-1.7s-1.5.8-1.5 2V17h-2.6Z"
-            fill="#162C6F"
+            fill="#001C3A"
           />
         </svg>
       ),
@@ -136,7 +146,7 @@ function SocialLinks() {
   ];
 
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex items-center gap-5 text-[#F2F4F6]">
       {socials.map((social) => (
         <a
           key={social.label}
@@ -144,7 +154,7 @@ function SocialLinks() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={social.label}
-          className="h-6 w-6 transition-opacity hover:opacity-60"
+          className="h-6 w-6 transition-colors duration-200 hover:text-[#B59863]"
         >
           {social.icon}
         </a>
@@ -155,6 +165,7 @@ function SocialLinks() {
 
 export default function Footer() {
   const params = useParams<{ locale: string }>();
+
   const locale: Locale =
     params.locale === "en" || params.locale === "ar"
       ? params.locale
@@ -173,10 +184,11 @@ export default function Footer() {
     <footer
       dir={isEnglish ? "ltr" : "rtl"}
       lang={locale}
-      className="bg-header text-[#c4ced8]"
+      className="bg-[#001C3A] text-[#F2F4F6]"
     >
       <div className="mx-auto max-w-360 px-6 py-10 md:px-10 lg:px-14">
-        <div className="flex flex-col gap-7 border-b border-[#c4ced8]/20 pb-7 lg:flex-row lg:items-center lg:justify-between">
+        {/* BRAND AND MAIN LINKS */}
+        <div className="flex flex-col gap-7 border-b border-[#F2F4F6]/20 pb-7 lg:flex-row lg:items-center lg:justify-between">
           <Link
             href={`/${locale}`}
             aria-label={t.home}
@@ -214,43 +226,49 @@ export default function Footer() {
           </nav>
         </div>
 
+        {/* FOOTER LINK SECTIONS */}
         <div className="space-y-8 py-8">
           <section className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-8">
-            <h2 className="shrink-0 text-base font-semibold lg:w-36">
+            <h2 className="shrink-0 text-base font-semibold text-[#F2F4F6] lg:w-36">
               {t.contact}
             </h2>
+
             <div className="min-w-0 flex-1">
               <InlineLinks items={data.contact} />
             </div>
           </section>
 
           <section className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-8">
-            <h2 className="shrink-0 text-base font-semibold lg:w-36">
+            <h2 className="shrink-0 text-base font-semibold text-[#F2F4F6] lg:w-36">
               {t.news}
             </h2>
+
             <div className="min-w-0 flex-1">
               <InlineLinks items={data.news} />
             </div>
           </section>
 
           <section className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-8">
-            <h2 className="shrink-0 text-base font-semibold lg:w-36">
+            <h2 className="shrink-0 text-base font-semibold text-[#F2F4F6] lg:w-36">
               {t.useful}
             </h2>
+
             <div className="min-w-0 flex-1">
               <InlineLinks items={data.useful} />
             </div>
           </section>
         </div>
 
-        <div className="flex justify-center border-t border-[#c4ced8]/20 py-6">
+        {/* SOCIAL LINKS */}
+        <div className="flex justify-center border-t border-[#F2F4F6]/20 py-6">
           <SocialLinks />
         </div>
 
-        <div className="border-t border-[#c4ced8]/20 pt-6">
+        {/* LEGAL LINKS AND COPYRIGHT */}
+        <div className="border-t border-[#F2F4F6]/20 pt-6">
           <nav
             aria-label={t.legal}
-            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs leading-6 sm:text-sm"
+            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs leading-6 text-[#F2F4F6] sm:text-sm"
           >
             {data.legal.map((item, index) => (
               <span
@@ -259,13 +277,16 @@ export default function Footer() {
               >
                 <Link
                   href={item.href}
-                  className="transition-opacity hover:opacity-60"
+                  className="transition-colors duration-200 hover:text-[#B59863]"
                 >
                   {item.label}
                 </Link>
 
                 {index !== data.legal.length - 1 && (
-                  <span className="text-[#c4ced8]/40" aria-hidden="true">
+                  <span
+                    className="text-[#F2F4F6]/40"
+                    aria-hidden="true"
+                  >
                     |
                   </span>
                 )}
@@ -273,8 +294,8 @@ export default function Footer() {
             ))}
           </nav>
 
-          <p className="mt-6 text-center text-xs leading-6 sm:text-sm">
-            {isEnglish ? "Copyright" : "©"} © 2026 | {t.copyright}
+          <p className="mt-6 text-center text-xs leading-6 text-[#F2F4F6] sm:text-sm">
+            {isEnglish ? "Copyright" : "©"} 2026 | {t.copyright}
           </p>
         </div>
       </div>
