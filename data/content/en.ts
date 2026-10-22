@@ -1,6 +1,6 @@
 import type { Content } from "./types";
 import { history as faHistory } from "../history";
-
+import type { PracticeArea } from "../history"; 
 // عکس‌ها از فایل فارسی خونده می‌شن تا فقط یک جا مدیریت بشن
 const img = (i: number) => faHistory[i]?.image;
 
@@ -25,7 +25,11 @@ export const en: Content = {
     openMenu: "Open menu",
     closeMenu: "Close menu",
     sections: {
-      highlights: "Key Achievements", // عنوان پیشنهادی: متن رسمی نیست
+      highlights: "Key Achievements", 
+
+  about: "About Us",
+  practiceAreas: "Practice Areas",
+  goals: "Our Goals",
     },
   },
 
@@ -116,5 +120,69 @@ export const en: Content = {
         },
       ],
     },
+  ],
+
+  practiceAreas: 
+  [
+    {
+      title: "Real Estate Disputes",
+      items: [
+        "Ownership disputes",
+        "Encroachment on property rights",
+        "Lease and eviction disputes",
+        "Resolving property-transfer disputes",
+        "Drafting and pursuing purchase, sale, mortgage, and lease/title contracts",
+      ],
+    },
+    {
+      title: "Criminal Cases",
+      items: [
+        "Fraud, theft, public intoxication, forgery, and use of forged documents",
+        "Assault and related criminal matters",
+        "Murder and defense in complex criminal cases",
+      ],
+    },
+    {
+      title: "Family Law Matters",
+      items: [
+        "Divorce and related matters",
+        "Mahriyeh (dower) claims",
+        "Child custody",
+        "Alimony and spousal rights",
+        "Joint financial and asset disputes",
+      ],
+    },
+    {
+      title: "Inheritance and Wills",
+      items: [
+        "Obtaining inheritance certificates and inheritance tax matters",
+        "Resolving disputes among heirs and drafting partition agreements",
+        "Drafting wills",
+      ],
+    },
+    {
+      title: "Drafting Contracts",
+      items: [
+        "Purchase and sale, construction partnerships, employment and commercial contracts",
+        "Lease and mortgage contracts",
+        "Power-of-attorney and representation contracts",
+      ],
+    },
+  ],
+
+  practiceAreasNote:
+    "Drawing on specialized, multi-decade experience, the firm has always been a trusted reference for resolving clients' legal matters, providing the best solutions in keeping with legal and ethical principles.",
+
+  goals: [
+    "Employing young, specialized, and capable lawyers",
+    "Using modern legal technologies",
+    "Providing online legal services to Iranians abroad",
+    "Expanding international legal services",
+    "Maintaining and enhancing transparency, integrity, and professionalism",
+    "Providing specialized consulting and representation in emerging legal fields",
+    "Legal services for large companies and organizations",
+    "Developing and improving internal processes",
+    "Creating an online platform for legal consultation",
+    "Resolving people's legal concerns and following up quickly",
   ],
 };

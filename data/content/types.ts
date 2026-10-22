@@ -1,4 +1,4 @@
-import type { HistoryItem, Highlight } from "../history";
+import type { HistoryItem, Highlight, PracticeArea } from "../history";
 
 export type Content = {
   ui: {
@@ -9,9 +9,17 @@ export type Content = {
     searchPlaceholder: string;
     openMenu: string;
     closeMenu: string;
-    sections: { highlights: string };
+    sections: {
+      highlights: string;
+      about: string;
+      practiceAreas: string;
+      goals: string;
+    };
   };
-  intro: { title: string; };
+  intro: { title: string };
   history: HistoryItem[];
   highlights: Highlight[];
+  practiceAreas: PracticeArea[];
+  practiceAreasNote: string;
+  goals: string[];
 };

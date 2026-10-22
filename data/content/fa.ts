@@ -1,5 +1,7 @@
 import type { Content } from "./types";
-import { intro, history, highlights } from "../history";
+import { intro, history, highlights , practiceAreas,
+  practiceAreasNote,
+  goals,} from "../history";
 import { navItems, contact, searchPlaceholder } from "../nav";
 
 export const fa: Content = {
@@ -12,10 +14,16 @@ export const fa: Content = {
     openMenu: "باز کردن منو",
     closeMenu: "بستن منو",
     sections: {
-      highlights: "دستاوردهای شاخص",
+    highlights: "دستاوردهای شاخص",
+    about: "درباره ما",
+    practiceAreas: "حوزه‌های فعالیت",
+    goals: "اهداف دفتر",
     },
   },
   intro,
   history,
   highlights,
+  practiceAreas,
+  practiceAreasNote,
+  goals,
 };

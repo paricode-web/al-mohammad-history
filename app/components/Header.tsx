@@ -1,5 +1,5 @@
 "use client";
-
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Image from "next/image";
@@ -155,7 +155,18 @@ function LangDropdown({
   current: Locale;
   className?: string;
   dropUp?: boolean;
-}) {
+}){ const pathname = usePathname();
+
+  const getLocalizedPath = (locale: Locale) => {
+    const segments = pathname.split("/");
+
+    if (locales.includes(segments[1] as Locale)) {
+      segments[1] = locale;
+    } else {
+      segments.splice(1, 0, locale);
+    }
+
+    return segments.join("/") || `/${locale}`;} 
   return (
     <Dropdown
       label={LANG_LABELS[current] ?? current.toUpperCase()}
@@ -184,7 +195,7 @@ function LangDropdown({
         locales.map((l) => (
           <a
             key={l}
-            href={`/${l}`}
+            href={getLocalizedPath(l)}
             hrefLang={l}
             lang={l}
             aria-current={l === current ? "true" : undefined}
