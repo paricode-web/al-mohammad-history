@@ -34,7 +34,7 @@ function Dot({
     <div
       data-timeline-dot
       data-line-passed="false"
-      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-[#C4CED8] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-accent data-[line-passed=true]:bg-accent data-[line-passed=true]:text-[#C4CED8] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
+      className={`timeline-dot absolute ${mobileSide} z-10 flex h-16 w-16 items-center justify-center rounded-full border border-light/20 bg-navy text-sm font-semibold text-[#C4CED8] shadow-sm transition-[background-color,border-color,color,box-shadow] duration-700 ease-out data-[line-passed=true]:border-accent data-[line-passed=true]:bg-accent data-[line-passed=true]:text-[#061F38] data-[line-passed=true]:shadow-[0_0_0_6px_rgb(197_170_118_/_15%),0_0_32px_rgb(197_170_118_/_30%)] lg:start-1/2 lg:h-20 lg:w-20 lg:text-base rtl:lg:translate-x-1/2 ltr:lg:-translate-x-1/2 ${pos}`}
     >
       {label}
     </div>
